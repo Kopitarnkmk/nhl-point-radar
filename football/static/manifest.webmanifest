@@ -1,0 +1,17 @@
+{
+  "name": "Football Point Radar — Coupon Builder",
+  "short_name": "Foot Radar",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#06131e",
+  "theme_color": "#071522",
+  "lang": "fr",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
