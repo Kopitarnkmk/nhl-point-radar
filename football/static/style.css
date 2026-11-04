@@ -114,3 +114,20 @@ html{font-size:16px}
  .nav .tab{font-size:11px}
  .nav .tab span{display:block}
 }
+
+/* Football Radar v1.1 — scorers */
+.nav{grid-template-columns:repeat(5,minmax(0,1fr))}
+.scorer-list{display:flex;flex-direction:column;gap:8px;margin:16px 0 24px}
+.scorer-card{display:flex;gap:10px;align-items:center;padding:12px 13px;border:1px solid #2b5264;border-radius:12px;background:#0d2734}
+.scorer-rank{font-size:12px;color:#8eacb6;min-width:21px;font-weight:800}
+.scorer-identity{min-width:0;flex:1}
+.scorer-identity b{display:block;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.scorer-identity small{display:block;color:#a2b9c4;font-size:11px}
+.scorer-goals{text-align:center;min-width:43px}
+.scorer-goals strong{font-size:20px;color:#20e8b5;display:block}
+.scorer-goals small{color:#9bb9c4;font-size:10px}
+.scorer-card button{min-width:35px;flex-shrink:0}
+#next-fixtures{margin-top:-2px;margin-bottom:15px}
+#panel-buteurs .filters{grid-template-columns:repeat(2,minmax(0,1fr))}
+#panel-buteurs .filters input{grid-column:auto}
+@media(max-width:680px){.nav .tab{font-size:10px;padding:12px 1px}.nav .tab span{font-size:10px}.scorer-identity b{font-size:13px}.scorer-identity small{font-size:10px}#panel-buteurs .filters{grid-template-columns:1fr}#panel-buteurs .filters label{min-width:0}}
