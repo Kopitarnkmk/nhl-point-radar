@@ -185,6 +185,18 @@ def leaders_for(comp):
         return p
     with concurrent.futures.ThreadPoolExecutor(max_workers=9) as pool:
         ordered=list(pool.map(resolve_player,ordered))
+    # Resolve each club once. Clubs must be grounded in provider data.
+    ids=set(p["teamId"] for p in ordered if p["teamId"])
+    def resolve_team(teamid):
+        try:
+            club=fetch(f"https://sports.core.api.espn.com/v2/sports/soccer/leagues/{comp}/seasons/{start}/teams/{teamid}")
+            return teamid,club.get("displayName") or club.get("name") or ""
+        except Exception:
+            return teamid,""
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+        clubnames=dict(pool.map(resolve_team,ids))
+    for p in ordered:
+        p["teamName"]=clubnames.get(p["teamId"],"")
     # A missing athlete identity is omitted, never replaced by an invented player.
     ordered=[p for p in ordered if p["name"] and p["matches"]>0]
     ordered.sort(key=lambda p:(-p["goals"],-p["assists"],p["name"]))
