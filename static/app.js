@@ -105,16 +105,25 @@ function updateReturn(){
   $("profit").textContent=valid?fmt(stake*(total-1)):"—";
   $("odds-note").textContent=valid?"Calcul théorique selon les cotes saisies. Aucune sélection n'est garantie.":groups.length?"Renseigne toutes les cotes de ton bookmaker, y compris la cote unique du Pari personnalisé + si plusieurs joueurs partagent un match.":"Aucune cote estimée ou inventée par l'application.";
 }
+function modePass(p,mode){
+  const r10=p.last10.rate||0, season=p.seasonRate||0, r5=p.last5.rate||0;
+  if(mode==="prudent")return r10>=80 && season>=72;
+  if(mode==="equilibre")return r10>=70 && r10<90 && season>=60;
+  return r10>=40 && r10<70 && r5>=60 && season>=50 && (p.points/Math.max(1,p.games))>=.7;
+}
 function candidateScore(p,mode){
-  if(mode==="prudent")return .5*p.index+.35*(p.last10.rate||0)+.15*(p.seasonRate||0);
-  if(mode==="exploratoire")return .4*p.index+.25*(p.last5.rate||0)+.35*Math.min(100,p.points/p.games*55);
-  return .45*p.index+.4*(p.last10.rate||0)+.15*(p.seasonRate||0)+(p.profile==="Polyvalent"?2:0);
+  const r10=p.last10.rate||0, season=p.seasonRate||0, r5=p.last5.rate||0;
+  if(mode==="prudent")return .55*r10+.35*season+.1*p.index;
+  if(mode==="exploratoire")return .6*r5+.25*Math.min(100,p.points/Math.max(1,p.games)*50)+.15*p.index;
+  return .35*r10+.4*r5+.25*season+(p.profile==="Polyvalent"?4:0);
 }
 function suggest(mode,n,allowPairs){
   const games=state.games.filter(upcoming);
   if(!games.length)return {picks:[],reason:"Aucun match non commencé sur la date sélectionnée."};
   const teams=new Set(games.flatMap(g=>[g.away,g.home]));
-  const players=state.players.filter(p=>teams.has(p.team)&&p.games>=10&&p.last10.matches>=10).sort((a,b)=>candidateScore(b,mode)-candidateScore(a,mode));
+  const base=state.players.filter(p=>teams.has(p.team)&&p.games>=10&&p.last10.matches>=10);
+  // Les trois modes occupent des bandes historiques distinctes ; aucun n'est « garanti ».
+  const players=base.filter(p=>modePass(p,mode)).sort((a,b)=>candidateScore(b,mode)-candidateScore(a,mode));
   const chosen=[],perGame=new Map();
   for(const p of players){
     const g=gameForTeam(p.team);if(!g||!upcoming(g))continue;
@@ -123,7 +132,10 @@ function suggest(mode,n,allowPairs){
     perGame.set(g.id,(perGame.get(g.id)||0)+1);
     if(chosen.length>=n)break;
   }
-  return {picks:chosen,reason:chosen.length<n?"Seulement "+chosen.length+" joueurs admissibles trouvés sur les matchs à venir.":""};
+  const why=mode==="prudent"?"Prudent : 8+/10 et saison ≥72 %."
+            :mode==="equilibre"?"Équilibré : 7–8/10 et saison ≥60 %."
+            :"Exploratoire : 4–6/10, accélération récente, saison ≥50 %.";
+  return {picks:chosen,reason:why+" "+(chosen.length<n?"Seulement "+chosen.length+" joueur(s) admissible(s) pour "+n+" demandé(s). Aucun joueur ajouté artificiellement.":"Ces groupes ne représentent pas des cotes ni des probabilités calculées.")};
 }
 async function loadGames(day){
   state.date=day;$("game-day").value=day;$("builder-date").value=day;
