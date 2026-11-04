@@ -81,8 +81,19 @@ def all_players(season):
     params = {"isAggregate":"false","isGame":"false","start":0,"limit":LIMIT,
               "sort":json.dumps([{"property":"points","direction":"DESC"}], separators=(",",":")),
               "cayenneExp":"seasonId=%s and gameTypeId=2" % season}
-    resp = nhl("https://api.nhle.com/stats/rest/en/skater/summary", params)
-    source = resp.get("data") or []
+    source = []
+    offset = 0
+    while len(source) < LIMIT:
+        params["start"] = offset
+        params["limit"] = min(100, LIMIT - len(source))
+        resp = nhl("https://api.nhle.com/stats/rest/en/skater/summary", params)
+        batch = resp.get("data") or []
+        if not batch:
+            break
+        source.extend(batch)
+        offset += len(batch)
+        if len(batch) < params["limit"]:
+            break
     if not source:
         raise RuntimeError("Pas de statistiques disponibles pour cette saison.")
     unique = {}
