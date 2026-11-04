@@ -183,7 +183,7 @@ function renderCoupon(){
  $("coupon-picks").classList.toggle("empty",state.picks.length===0);
  $("coupon-picks").innerHTML=state.picks.map((p,i)=>{
    const f=state.fixtures.find(f=>f.id===p.eventId);
-   return '<div class="pick-item"><div><b>'+esc(pickLabel(p))+'</b><small>'+esc(p.home)+' – '+esc(p.away)+' · '+esc(f?.competitionName||p.competition)+'</small></div><button class="close-btn" data-remove="'+i+'" aria-label="Retirer la sélection">✕</button></div>'
+   return '<div class="pick-item"><div><b>'+esc(pickLabel(p))+'</b><small>'+esc(p.home)+' – '+esc(p.away)+' · '+esc(f?.competitionName||p.competition)+(p.lowSample?' · ⚠️ Faible échantillon':'')+(p.playerName?' · Titularisation à vérifier':'')+'</small></div><button class="close-btn" data-remove="'+i+'" aria-label="Retirer la sélection">✕</button></div>'
  }).join("")||"Ajoute un marché depuis l’analyse d’un match ou le générateur.";
  $("odds-inputs").innerHTML=groups().map(g=>{
    const odds=state.odds[oddKey(g)];
@@ -303,7 +303,7 @@ async function generate(){
   const out=build(mode,n,multi);
   if(!out.length){$("builder-message").textContent="Pas assez d'historique vérifié pour ce filtre, ou aucune équipe des joueurs suivis n'a de match à venir. Essaie une autre date ou une autre compétition.";return}
   state.picks=out;state.odds={};persist();renderCoupon();
-  $("builder-message").textContent=out.length+" marché(s) retenu(s). Mode "+MODE[mode].label+" — indicateurs descriptifs, non des probabilités. Vérifie les compositions, absences et cotes.";
+  $("builder-message").textContent=out.length+" marché(s) retenu(s). Mode "+MODE[mode].label+" — indicateurs descriptifs, non des probabilités. "+(out.some(p=>p.lowSample)?"⚠️ Certaines sélections reposent sur 2 à 4 matchs seulement. ":"")+"Vérifie les compositions, absences et cotes.";
  }catch(e){$("builder-message").textContent="Erreur de génération : "+e.message}
  finally{btn.disabled=false;btn.textContent="✨ Générer mon coupon"}
 }
