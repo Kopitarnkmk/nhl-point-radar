@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: nhl-point-radar
+    runtime: python
+    plan: free
+    region: frankfurt
+    buildCommand: "echo Aucune dépendance externe"
+    startCommand: "python app.py"
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.8"
+      - key: PLAYER_LIMIT
+        value: "140"
+      - key: NHL_TIMEOUT
+        value: "12"
