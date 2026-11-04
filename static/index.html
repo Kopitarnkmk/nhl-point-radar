@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="fr"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#061521"><meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Point Radar">
+<title>NHL Point Radar — Coupon Builder</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icon.svg">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div id="app">
+<header class="header"><div class="brand"><div class="brand-icon">🏒</div><div><div class="eyebrow">NHL • ANALYTICS 2026/27</div><h1>POINT <span>RADAR</span></h1></div></div><button class="icon-btn" id="reload" title="Actualiser" aria-label="Actualiser les données">↻</button></header>
+<div class="wrap">
+<div class="hero"><div class="hero-tag"><span class="dot"></span> NHL COUPON BUILDER <span id="season-badge">SAISON EN COURS</span></div><h2>Des points. Des stats.<br><em>De meilleures décisions.</em></h2><p>Repère les joueurs qui marquent <b>ou</b> font une passe. Compare leur régularité avant de préparer un coupon NHL 1+ point.</p></div>
+<div id="notice" class="notice">Chargement des statistiques officielles NHL…</div>
+<div class="metrics"><div class="metric"><div class="metric-lbl">JOUEURS ANALYSÉS</div><div class="metric-val" id="kpi-players">—</div></div><div class="metric"><div class="metric-lbl">MATCHS DU JOUR</div><div class="metric-val" id="kpi-games">—</div></div><div class="metric"><div class="metric-lbl">DANS LE COUPON</div><div class="metric-val mint" id="kpi-picks">0</div></div></div>
+<nav class="tabs" aria-label="Navigation principale">
+<button class="tab active" data-tab="top">🏆 <span>Top joueurs</span></button>
+<button class="tab" data-tab="forme">🔥 <span>Forme</span></button>
+<button class="tab" data-tab="matchs">📅 <span>Matchs</span></button>
+<button class="tab" data-tab="coupons">🎟️ <span>Coupons</span><span class="counter" id="tab-count">0</span></button>
+</nav>
+<main>
+<section class="panel active" id="panel-top">
+<div class="section-head"><div><div class="eyebrow">CLASSEMENT</div><h3>Top joueurs NHL</h3></div><span class="updated" id="update-top"></span></div>
+<div class="filters"><input type="search" id="search" placeholder="Rechercher un joueur ou une équipe…" aria-label="Rechercher un joueur"><select id="profile" aria-label="Type de joueur"><option value="">Tous les profils</option><option value="Polyvalent">Polyvalents</option><option value="Buteur">Buteurs</option><option value="Passeur">Passeurs</option></select><select id="sort" aria-label="Trier les joueurs"><option value="index">Indice régularité</option><option value="season">Régularité saison</option><option value="last10">Forme 10 matchs</option><option value="points">Total des points</option></select></div>
+<div class="hint">Indice = mesure descriptive pondérée sur la saison et les 5/10 derniers matchs. <b>Ce n'est pas une probabilité de pari.</b></div>
+<div id="player-list" class="player-list empty">Chargement…</div>
+</section>
+<section class="panel" id="panel-forme">
+<div class="section-head"><div><div class="eyebrow">FORME DU MOMENT</div><h3>Les plus réguliers</h3></div></div>
+<div class="filters"><select id="forme-window"><option value="last10">10 derniers matchs</option><option value="last5">5 derniers matchs</option></select><select id="forme-profile"><option value="">Tous les profils</option><option value="Polyvalent">Polyvalents uniquement</option></select></div>
+<div class="hint">Un match avec 2 passes = <b>un seul match réussi</b> sur le marché « 1 point ou plus ».</div>
+<div id="form-list" class="player-list empty">Chargement…</div>
+</section>
+<section class="panel" id="panel-matchs">
+<div class="section-head"><div><div class="eyebrow">CALENDRIER OFFICIEL</div><h3>Matchs NHL</h3></div><input id="game-day" type="date" aria-label="Jour NHL"></div>
+<div class="hint">Journée nord-américaine. Heures affichées dans ton fuseau horaire. Seuls les matchs à venir peuvent être proposés par le générateur.</div>
+<div id="game-list" class="game-list empty">Chargement…</div>
+</section>
+<section class="panel" id="panel-coupons">
+<div class="section-head"><div><div class="eyebrow">TON ASSISTANT NHL</div><h3>Coupon Builder <span class="v2">V2</span></h3></div></div>
+<div class="builder-card"><div class="builder-title">Générer un coupon</div><p>Des suggestions basées sur la régularité des joueurs disponibles dans les matchs non commencés.</p>
+<div class="builder-fields"><label>Mode<select id="mode"><option value="prudent">Prudent (descriptif)</option><option value="equilibre" selected>Équilibré</option><option value="exploratoire">Exploratoire</option></select></label><label>Sélections<select id="pick-count"><option>2</option><option>3</option><option selected>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></label><label>Associations<select id="pair-mode"><option value="allow">Même match autorisé</option><option value="no">Un seul joueur par match</option></select></label><label>Date NHL<input type="date" id="builder-date"></label></div>
+<button class="primary" id="generate">✨ Générer mon coupon</button><div class="action-grid"><button class="secondary" id="trio">Générer 3 variantes</button><button class="secondary" id="clear">Vider le coupon</button></div>
+<div id="builder-message" class="hint"></div></div>
+<div class="section-head"><h3>Mon coupon <span id="selected-count" class="muted">0 sélection</span></h3></div>
+<div id="coupon-picks" class="coupon-picks empty">Ajoute un joueur depuis Top joueurs, Forme ou Matchs.</div>
+<div id="odds-area" class="odds-area"></div>
+<div class="return-card"><div class="return-grid"><label>Mise (CHF)<input id="stake" type="number" inputmode="decimal" min="0" step="1" value="50"></label><div><small>COTE TOTALE</small><strong id="total-odds">—</strong></div><div><small>RETOUR POTENTIEL</small><strong id="return">—</strong></div><div><small>BÉNÉFICE POTENTIEL</small><strong id="profit">—</strong></div></div><p class="hint" id="odds-note">Saisis les cotes réellement proposées par ton bookmaker. Aucune cote n'est inventée.</p><button class="secondary" id="copy-coupon">📋 Copier le coupon</button></div>
+<div id="variants" class="variants"></div>
+</section>
+</main>
+<footer>Sources : NHL Stats API + NHL Game Log + NHL Score API. Données non garanties en temps réel. Aucun pari garanti ni placement automatique. <span id="footer-updated"></span></footer>
+</div>
+</div>
+<dialog id="player-dialog"><div class="dialog-bar"><h3 id="dialog-name"></h3><button id="dialog-close" class="icon-btn" aria-label="Fermer">✕</button></div><div id="dialog-detail"></div></dialog>
+<script src="/app.js" defer></script>
+</body></html>
