@@ -143,6 +143,81 @@ def history(comp):
     return {"competition":CAT[comp],"games":games,"total":len(games),"partial":bool(failed),
             "errors":failed,"updatedAt":utcnow(),"seasonStart":season_start().isoformat()}
 
+
+def leaders_for(comp):
+    """Season goal / assist leaderboard. ESPN uses season's first calendar year (2026 for 2026-27)."""
+    if comp not in CAT: raise ValueError("Compétition inconnue")
+    start=season_start().year
+    path=f"https://sports.core.api.espn.com/v2/sports/soccer/leagues/{comp}/seasons/{start}/types/1/leaders"
+    raw=fetch(path,{"limit":22})
+    categories={x.get("name"):x.get("leaders") or [] for x in raw.get("categories") or []}
+    players={}
+    for kind,arr in (("goals",categories.get("goalsLeaders") or categories.get("goals") or []),
+                     ("assists",categories.get("assistsLeaders") or categories.get("assists") or [])):
+        for r in arr[:22]:
+            athlete_ref=(r.get("athlete") or {}).get("$ref","")
+            team_ref=(r.get("team") or {}).get("$ref","")
+            player_id=re.search(r"/athletes/(\d+)",athlete_ref)
+            team_id=re.search(r"/teams/(\d+)",team_ref)
+            if not player_id: continue
+            pid=player_id.group(1)
+            if pid not in players:
+                players[pid]={"id":pid,"teamId":team_id.group(1) if team_id else "",
+                              "name":"","teamName":"","goals":0,"assists":0,"matches":0,
+                              "source":"ESPN leaderboards"}
+            p=players[pid]
+            vals=str(r.get("shortDisplayValue") or "")
+            match=re.search(r"\bM:\s*(\d+)",vals)
+            if match:p["matches"]=max(p["matches"],int(match.group(1)))
+            goal=re.search(r"\bG:\s*(\d+)",vals)
+            assist=re.search(r"\bA:\s*(\d+)",vals)
+            if goal:p["goals"]=max(p["goals"],int(goal.group(1)))
+            if assist:p["assists"]=max(p["assists"],int(assist.group(1)))
+            if kind=="goals":p["goals"]=max(p["goals"],int(r.get("value") or 0))
+            else:p["assists"]=max(p["assists"],int(r.get("value") or 0))
+    ordered=sorted(players.values(),key=lambda p:(-p["goals"],-p["assists"]))[:28]
+    def resolve_player(p):
+        try:
+            url=f"https://sports.core.api.espn.com/v2/sports/soccer/leagues/{comp}/seasons/{start}/athletes/{p['id']}"
+            person=fetch(url)
+            p["name"]=person.get("fullName") or person.get("displayName") or ""
+        except Exception: pass
+        return p
+    with concurrent.futures.ThreadPoolExecutor(max_workers=9) as pool:
+        ordered=list(pool.map(resolve_player,ordered))
+    # A missing athlete identity is omitted, never replaced by an invented player.
+    ordered=[p for p in ordered if p["name"] and p["matches"]>0]
+    ordered.sort(key=lambda p:(-p["goals"],-p["assists"],p["name"]))
+    return {"competition":CAT[comp],"players":ordered,"updatedAt":utcnow(),
+            "sampleNote":"Buts / matchs n'est pas la probabilité de marquer au prochain match. Joueurs non titulaires possibles.",
+            "coverage":"Classement partiel des meilleurs buteurs/passeurs, pas tous les joueurs."}
+
+def next_fixtures(from_day,chosen):
+    """Quick jump to upcoming fixtures using one yearly league request per selected competition."""
+    options=[k for k,v in CAT.items() if chosen=="all" or chosen==v["kind"] or chosen==k]
+    if chosen=="all":
+        # Fast, representative next match across key leagues; full list remains available by date.
+        options=["eng.1","esp.1","ger.1","ita.1","fra.1","uefa.champions","uefa.europa","uefa.europa.conf"]
+    if not options: raise ValueError("Filtre non reconnu")
+    def read_one(comp):
+        found=[]
+        for year in [date.fromisoformat(from_day).year]:
+            raw=fetch(SPORT+"/"+comp+"/scoreboard",{"dates":str(year),"limit":750})
+            for event in raw.get("events") or []:
+                m=parse_event(event,comp)
+                if m and m["state"]=="pre" and m["date"][:10]>=from_day:
+                    found.append(m)
+        return found
+    found=[]
+    with concurrent.futures.ThreadPoolExecutor(max_workers=7) as pool:
+        futures={pool.submit(read_one,k):k for k in options}
+        for future in concurrent.futures.as_completed(futures):
+            try:found+=future.result()
+            except Exception:pass
+    found.sort(key=lambda x:x["date"])
+    earliest=found[0]["date"][:10] if found else None
+    return {"date":earliest,"filter":chosen,"count":len(found),"examples":found[:8],"updatedAt":utcnow()}
+
 def jsondata(handler, obj, status=200):
     data=json.dumps(obj,ensure_ascii=False,separators=(",",":")).encode()
     handler.send_response(status)
@@ -175,6 +250,17 @@ class Handler(BaseHTTPRequestHandler):
             except ValueError:return jsondata(self,{"error":"Date invalide"},400)
             result=cache("schedule:"+day,300,lambda:schedule(day))
             return jsondata(self,result)
+        if route=="/api/leaders":
+            comp=query.get("competition",[""])[0]
+            if comp not in CAT:return jsondata(self,{"error":"Compétition inconnue"},400)
+            return jsondata(self,cache("leaders:"+comp,3600,lambda:leaders_for(comp)))
+        if route=="/api/next":
+            chosen=query.get("filter",["all"])[0]
+            day=query.get("date",[date.today().isoformat()])[0]
+            if chosen not in list(CAT)+["all","championnat","coupe","europe"]:return jsondata(self,{"error":"Filtre invalide"},400)
+            try: date.fromisoformat(day)
+            except ValueError:return jsondata(self,{"error":"Date invalide"},400)
+            return jsondata(self,cache("next:"+chosen+":"+day,1800,lambda:next_fixtures(day,chosen)))
         if route=="/api/history":
             comp=query.get("competition",[""])[0]
             if comp not in CAT:return jsondata(self,{"error":"Compétition inconnue"},400)
