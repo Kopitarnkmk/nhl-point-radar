@@ -1,0 +1,17 @@
+{
+  "name": "NHL Point Radar — Coupon Builder",
+  "short_name": "Point Radar",
+  "lang": "fr",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#06131e",
+  "theme_color": "#061521",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
