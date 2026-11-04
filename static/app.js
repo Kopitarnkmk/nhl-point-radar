@@ -107,7 +107,7 @@ function updateReturn(){
 }
 function modePass(p,mode){
   const r10=p.last10.rate||0, season=p.seasonRate||0, r5=p.last5.rate||0;
-  if(mode==="prudent")return r10>=80 && season>=72;
+  if(mode==="prudent")return r10>=90 && season>=75;
   if(mode==="equilibre")return r10>=70 && r10<90 && season>=60;
   return r10>=40 && r10<70 && r5>=60 && season>=50 && (p.points/Math.max(1,p.games))>=.7;
 }
@@ -132,7 +132,7 @@ function suggest(mode,n,allowPairs){
     perGame.set(g.id,(perGame.get(g.id)||0)+1);
     if(chosen.length>=n)break;
   }
-  const why=mode==="prudent"?"Prudent : 8+/10 et saison ≥72 %."
+  const why=mode==="prudent"?"Prudent : 9+/10 et saison ≥75 %."
             :mode==="equilibre"?"Équilibré : 7–8/10 et saison ≥60 %."
             :"Exploratoire : 4–6/10, accélération récente, saison ≥50 %.";
   return {picks:chosen,reason:why+" "+(chosen.length<n?"Seulement "+chosen.length+" joueur(s) admissible(s) pour "+n+" demandé(s). Aucun joueur ajouté artificiellement.":"Ces groupes ne représentent pas des cotes ni des probabilités calculées.")};
