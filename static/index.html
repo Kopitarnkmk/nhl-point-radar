@@ -19,7 +19,7 @@
 <nav class="tabs" aria-label="Navigation principale">
 <button class="tab active" data-tab="top">🏆 <span>Top joueurs</span></button>
 <button class="tab" data-tab="forme">🔥 <span>Forme</span></button>
-<button class="tab" data-tab="matchs">📅 <span>Matchs</span></button>
+<button class="tab" data-tab="matchs">📅 <span>Matchs</span></button><button class="tab" data-tab="projections">📈 <span>Projections</span></button>
 <button class="tab" data-tab="coupons">🎟️ <span>Coupons</span><span class="counter" id="tab-count">0</span></button>
 </nav>
 <main>
@@ -39,6 +39,11 @@
 <div class="section-head"><div><div class="eyebrow">CALENDRIER OFFICIEL</div><h3>Matchs NHL</h3></div><input id="game-day" type="date" aria-label="Jour NHL"></div>
 <div class="hint">Journée nord-américaine. Heures affichées dans ton fuseau horaire. Seuls les matchs à venir peuvent être proposés par le générateur.</div>
 <div id="game-list" class="game-list empty">Chargement…</div>
+</section>
+<section class="panel" id="panel-projections">
+<div class="section-head"><div><div class="eyebrow">PRÉVISIONS & COMPOSITIONS</div><h3>Matchs NHL et gardiens</h3></div><button class="secondary" id="reload-preview">↻ Vérifier les gardiens</button></div>
+<p class="hint">Modèle indicatif : probabilité de victoire avec prolongation départagée 50/50 après égalité, buts attendus par équipe et total. Les gardiens et compositions sont signalés non confirmés avant parution de la feuille de match NHL. Actualisation automatique toutes les 3 minutes lorsque l'app est ouverte.</p>
+<div id="preview-list" class="game-list empty">Chargement…</div>
 </section>
 <section class="panel" id="panel-coupons">
 <div class="section-head"><div><div class="eyebrow">TON ASSISTANT NHL</div><h3>Coupon Builder <span class="v2">V2</span></h3></div></div>
