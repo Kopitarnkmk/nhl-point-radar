@@ -16,6 +16,11 @@ async function analyze(id){
  try{const r=await fetch("/api/report?id="+encodeURIComponent(id)+"&date="+encodeURIComponent(s.date)),d=await r.json();if(!r.ok)throw Error(d.error||r.status);s.report=d;
  const model=d.teamProjection.model;
  $("match-analysis").innerHTML=model?'<div class="projection"><div><small>VICTOIRE '+esc(g.away.abbr)+'</small><strong>'+model.awayWinPct+' %</strong></div><div><small>VICTOIRE '+esc(g.home.abbr)+'</small><strong>'+model.homeWinPct+' %</strong></div><div><small>POINTS '+esc(g.away.abbr)+'</small><strong>'+model.awayScore+'</strong></div><div><small>POINTS '+esc(g.home.abbr)+'</small><strong>'+model.homeScore+'</strong></div><div><small>TOTAL ESTIMÉ</small><strong>'+model.total+'</strong></div></div><p class="muted">Estimation simple non calibrée · '+esc(d.lineupStatus)+' · '+esc(model.method)+'</p>':'<p class="muted">Historique d’équipe insuffisant pour projeter le score.</p>';
+ if(d.starters?.length){
+  $("match-analysis").innerHTML+='<div class="starters"><h4>🏀 Cinq titulaires annoncés par ESPN</h4>'+d.starters.map(t=>'<div><b>'+esc(t.team)+'</b> : '+t.players.map(esc).join(", ")+'</div>').join("")+'</div>';
+ }else{
+  $("match-analysis").innerHTML+='<p class="muted">Cinq titulaires non confirmés ; actualisation à la prochaine consultation.</p>';
+ }
  $("player-count").textContent=d.players.length;renderPlayers();
  }catch(e){$("match-analysis").textContent="Données indisponibles : "+e.message}
 }
@@ -24,7 +29,8 @@ function renderPlayers(){
  if(!d)return;$("player-list").innerHTML=d.players.filter(p=>(p.name+" "+p.team).toLowerCase().includes(q))
  .sort((a,b)=>(b.projection[stat]??0)-(a.projection[stat]??0)).map(p=>{
   const v=p.projection[stat],n=p.games;
-  return '<article class="player"><div><b>'+esc(p.name)+'</b><small>'+esc(p.team)+' · '+n+' matchs · '+esc(p.position||"")+'</small></div><div class="estimate">'+(v==null?"—":v.toFixed(1))+'<small>'+esc(names[stat])+' attendus</small></div><button class="sub" data-player="'+esc(p.id)+'" '+(v==null?'disabled':'')+'>＋</button></article>';
+  const caution=n<5?" · ⚠️ Petit échantillon":"";
+  return '<article class="player"><div><b>'+esc(p.name)+'</b><small>'+esc(p.team)+' · '+n+' matchs'+caution+' · '+esc(p.position||"")+'</small></div><div class="estimate">'+(v==null?"—":v.toFixed(1))+'<small>'+esc(names[stat])+' attendus</small></div><button class="sub" data-player="'+esc(p.id)+'" '+(v==null?'disabled':'')+'>＋</button></article>';
  }).join("")||'<p class="muted">Aucun historique sur ce filtre.</p>';
 }
 function addPick(pid){
@@ -60,4 +66,5 @@ document.addEventListener("DOMContentLoaded",()=>{
  $("odds").addEventListener("input",e=>{if(e.target.dataset.odd){s.odds[e.target.dataset.odd]=e.target.value;save();calculate()}});
  document.addEventListener("click",e=>{let a=e.target.closest("[data-game]");if(a){analyze(a.dataset.game);return}let b=e.target.closest("[data-player]");if(b){addPick(b.dataset.player);return}let c=e.target.closest("[data-remove]");if(c){s.picks.splice(+c.dataset.remove,1);s.odds={};save();renderCoupon()}});
  setInterval(()=>{if(!document.hidden&&s.date)games(s.date)},5*60*1000);
+ setInterval(()=>{if(!document.hidden&&s.selected)analyze(s.selected)},5*60*1000);
 });
