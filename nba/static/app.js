@@ -59,8 +59,8 @@ function renderPlayers(){
  if(!d)return;$("player-list").innerHTML=d.players.filter(p=>(p.name+" "+p.team).toLowerCase().includes(q))
  .sort((a,b)=>(b.projection[stat]??0)-(a.projection[stat]??0)).map(p=>{
   const v=p.projection[stat],n=p.games;
-  const caution=n<5?" · ⚠️ Petit échantillon":"";
-  return '<article class="player"><div><b>'+esc(p.name)+'</b><small>'+esc(p.team)+' · '+n+' matchs'+caution+' · '+esc(p.position||"")+'</small></div><div class="estimate">'+(v==null?"—":v.toFixed(1))+'<small>'+esc(names[stat])+' attendus</small></div><button class="sub" data-player="'+esc(p.id)+'" '+(v==null||d.game.state!=='pre'||Date.parse(d.game.date)<=Date.now()?'disabled':'')+'>＋</button></article>';
+  const caution=(n<5?" · ⚠️ Petit échantillon":"")+(p.out?" · ⛔ Indisponible ESPN":"");
+  return '<article class="player"><div><b>'+esc(p.name)+'</b><small>'+esc(p.team)+' · '+n+' matchs'+caution+' · '+esc(p.position||"")+'</small></div><div class="estimate">'+(v==null?"—":v.toFixed(1))+'<small>'+esc(names[stat])+' attendus</small></div><button class="sub" data-player="'+esc(p.id)+'" '+(v==null||p.out||d.game.state!=='pre'||Date.parse(d.game.date)<=Date.now()?'disabled':'')+'>＋</button></article>';
  }).join("")||'<p class="muted">Aucun historique sur ce filtre.</p>';
 }
 function addPick(pid){
@@ -71,6 +71,7 @@ function addPick(pid){
  if(threshold===null)return;
  const t=Number(threshold);
  if(!Number.isFinite(t)||t<0)return alert("Seuil invalide.");
+ if(p.out)return alert("Joueur signalé absent par ESPN : sélection désactivée.");
  const match=s.report.game;
  if(match.state!=="pre"||Date.parse(match.date)<=Date.now())return alert("Match commencé : impossible de sélectionner un marché NBA.");
  s.picks.push({id:pid+"-"+stat+"-"+match.id,matchId:match.id,name:p.name,team:p.team,stat,threshold:t,avg});
@@ -93,7 +94,7 @@ async function generateCouponNBA(){
     else{const r=await fetch("/api/report?id="+encodeURIComponent(g.id)+"&date="+encodeURIComponent(s.date));d=await r.json();if(!r.ok)throw Error(d.error||r.status)}
    }catch(e){unavailable.push(g.away.abbr+"–"+g.home.abbr);continue}
    for(const p of d.players||[]){
-    if(p.sample<5)continue;
+    if(p.sample<5||p.out)continue;
     for(const key of stat==="all"?["points","rebounds","assists","threes","twos"]:[stat]){
      const history=(p.history?.[key]||[]).filter(Number.isFinite);
      if(history.length<(mode==="prudent"?7:5)||!Number.isFinite(p.projection?.[key]))continue;
