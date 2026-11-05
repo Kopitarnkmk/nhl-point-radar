@@ -141,7 +141,7 @@ async function loadGames(day){
   state.date=day;$("game-day").value=day;$("builder-date").value=day;
   try{const r=await fetch("/api/games?date="+encodeURIComponent(day));const d=await r.json();if(!r.ok)throw Error(d.error||r.status);
     if(state.date!==day)return;
-    state.games=d.games||[];matchView();renderCoupon();if(d.stale)setNotice(d.warning||"Calendrier en cache.",true);
+    state.games=d.games||[];matchView();renderCoupon();previewIndex();if(d.stale)setNotice(d.warning||"Calendrier en cache.",true);
   }catch(e){state.games=[];matchView();renderCoupon();setNotice("Calendrier indisponible : "+e.message,true)}
 }
 async function loadPlayers(){
@@ -178,6 +178,34 @@ function copyCoupon(){
   if(navigator.clipboard&&window.isSecureContext)navigator.clipboard.writeText(str).then(()=>alert("Coupon copié !")).catch(()=>prompt("Copier le coupon :",str));
   else prompt("Copier le coupon :",str);
 }
+
+const previewState={selected:null,loading:false};
+function previewIndex(){
+ const el=$("preview-list");if(!el)return;
+ el.classList.remove("empty");
+ if(!state.games.length){el.classList.add("empty");el.textContent="Aucun match pour la journée choisie.";return}
+ el.innerHTML=state.games.map(g=>'<div class="game-card"><div class="game-meta">'+esc(timeLocal(g.startUTC))+' · '+esc(g.state)+'</div><div class="game-teams"><span>'+esc(g.away)+'</span><span class="game-versus">VS</span><span>'+esc(g.home)+'</span></div><button class="secondary" style="width:100%" data-preview="'+g.id+'">📈 Analyse & gardiens</button><div id="preview-'+g.id+'" class="match-preview"></div></div>').join("");
+ if(previewState.selected&&state.games.some(g=>g.id===previewState.selected))showPreview(previewState.selected);
+}
+async function showPreview(id){
+ previewState.selected=id;
+ const el=$("preview-"+id);if(!el||previewState.loading)return;
+ previewState.loading=true;el.textContent="Actualisation des gardiens et des projections NHL…";
+ try{
+  const r=await fetch("/api/preview?id="+encodeURIComponent(id)),d=await r.json();
+  if(!r.ok)throw Error(d.error||"Analyse indisponible");
+  const projection=d.model?'<div class="preview-forecast"><div><small>VICTOIRE '+esc(d.away)+'</small><strong>'+d.model.awayWinPct+' %</strong></div><div><small>VICTOIRE '+esc(d.home)+'</small><strong>'+d.model.homeWinPct+' %</strong></div><div><small>BUTS '+esc(d.away)+'</small><strong>'+d.model.awayGoals+'</strong></div><div><small>BUTS '+esc(d.home)+'</small><strong>'+d.model.homeGoals+'</strong></div><div><small>TOUT LE MATCH</small><strong>'+d.model.totalGoals+' buts</strong></div></div>':'<div class="warning">Pas assez de matchs terminés pour une estimation indicative.</div>';
+  const sides=["away","home"].map(side=>{
+   const team=side==="home"?d.home:d.away;
+   const people=d.goalies?.[side]||[],starters=d.starters?.[side]||[],line=d.lineup?.[side]||[];
+   return '<div class="preview-team"><h4>'+esc(team)+'</h4><div class="hint">'+(starters.length?'Gardiens en jeu / confirmés':'Gardien titulaire non confirmé')+'</div>'+
+   (starters.length?starters.map(p=>'<div class="goalie confirmed">✓ '+esc(p.name)+'</div>').join(""):people.slice(0,3).map(p=>'<div class="goalie">'+esc(p.name)+' · Arrêts '+(p.savePct==null?'—':p.savePct+' %')+' · '+esc(p.starts)+' MJ</div>').join("")||'<div class="hint">Aucune statistique de gardien disponible.</div>')+
+   '<details><summary>Composition '+(line.length?'sur la feuille de match':'non confirmée')+'</summary>'+(line.length?'<div class="lineup">'+line.map(p=>'<div>'+esc(p.name)+' · '+esc(p.position)+'</div>').join("")+'</div>':'<p class="hint">La NHL n’a pas encore publié la composition confirmée. Elle apparaîtra dès la mise à jour de la feuille de match.</p>')+'</details></div>';
+  }).join("");
+  el.innerHTML=projection+'<p class="hint">⚠️ '+esc(d.model?.label||"Pas de projection")+' · '+esc(d.goalieStatus)+' · Données '+new Date(d.updatedAt).toLocaleTimeString("fr-CH")+'</p><div class="preview-teams">'+sides+'</div>';
+ }catch(e){el.innerHTML='<p class="hint">Données indisponibles : '+esc(e.message)+'</p>'}
+ finally{previewState.loading=false}
+}
 function init(){
   getSaved();const today=dayNY();state.date=today;$("game-day").value=today;$("builder-date").value=today;
   document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>tab(b.dataset.tab)));
@@ -191,6 +219,8 @@ function init(){
   $("stake").addEventListener("input",()=>{save();updateReturn()});
   $("copy-coupon").addEventListener("click",copyCoupon);
   $("reload").addEventListener("click",()=>{setNotice("Actualisation en cours…");loadPlayers();loadGames(state.date)});
+  $("reload-preview").addEventListener("click",()=>{if(previewState.selected)showPreview(previewState.selected);else previewIndex()});
+  $("preview-list").addEventListener("click",e=>{const b=e.target.closest("[data-preview]");if(b)showPreview(Number(b.dataset.preview))});
   $("dialog-close").addEventListener("click",()=>$("player-dialog").close());
   $("odds-area").addEventListener("input",e=>{const k=e.target.dataset.key;if(!k)return;state.odds[k]=e.target.value;save();updateReturn()});
   document.addEventListener("click",e=>{
@@ -199,6 +229,7 @@ function init(){
     const c=e.target.closest("[data-variant]");if(c){const v=state.variants[Number(c.dataset.variant)];if(!v)return;state.picks=v.picks;state.odds={};save();renderAll();tab("coupons");return}
   });
   loadGames(today);loadPlayers();
+  setInterval(()=>{if(!document.hidden&&previewState.selected)showPreview(previewState.selected)},3*60*1000);
   setInterval(()=>{if(!document.hidden){loadGames(state.date);loadPlayers()}},15*60*1000);
 }
 document.addEventListener("DOMContentLoaded",init);
