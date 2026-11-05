@@ -1,0 +1,16 @@
+{
+  "name": "NBA Radar — Stats & Projections",
+  "short_name": "NBA Radar",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#091927",
+  "theme_color": "#091927",
+  "lang": "fr",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
