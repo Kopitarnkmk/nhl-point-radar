@@ -8,7 +8,7 @@ const oddText = v => Number(v).toFixed(2);
 const fmt = v => Number(v).toLocaleString("fr-CH",{minimumFractionDigits:2,maximumFractionDigits:2})+" CHF";
 function getSaved(){
   try {const d=JSON.parse(localStorage.getItem("nhl-radar-v2")||"{}");
-    state.picks=Array.isArray(d.picks)?d.picks.filter(x=>Number.isFinite(+x.id)).slice(0,8):[];
+    state.picks=Array.isArray(d.picks)?d.picks.filter(x=>Number.isFinite(+x.id)||String(x.id).startsWith("match:")).slice(0,8):[];
     state.odds=d.odds&&typeof d.odds==="object"?d.odds:{};
     if(Number.isFinite(+d.stake) && +d.stake>=0)$("stake").value=d.stake;
   }catch(e){state.picks=[];state.odds={}}
@@ -17,7 +17,7 @@ function save(){try{localStorage.setItem("nhl-radar-v2",JSON.stringify({picks:st
 function setNotice(text,error=false){const n=$("notice");n.textContent=text;n.className="notice "+(error?"error":"ok")}
 function tab(name){document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x.dataset.tab===name));document.querySelectorAll(".panel").forEach(x=>x.classList.toggle("active",x.id==="panel-"+name));if(name==="coupons")renderCoupon();window.scrollTo({top:Math.min(window.scrollY,270),behavior:"smooth"})}
 function selected(id){return state.picks.some(p=>p.id===id)}
-function byId(id){return state.players.find(p=>p.id===id)}
+function byId(id){if(String(id).startsWith("match:")){const pick=state.picks.find(p=>p.id===id);return pick?{id,name:pick.label,team:pick.gameLabel,isMatch:true,last10:{withPoint:0,matches:0}}:null}return state.players.find(p=>p.id===id)}
 function playerCard(p){
   return '<div class="player-card"><div class="person"><div class="person-name">'+esc(p.name)+'</div><div class="person-meta">'+esc(p.team)+' · '+esc(p.position)+' · <span class="badge">'+esc(p.profile)+'</span></div></div>'+
   '<div class="cell"><small>SAISON 1+ PT</small><strong>'+esc(p.pointGames)+'/'+esc(p.games)+' ('+pct(p.seasonRate)+')</strong></div>'+
@@ -77,9 +77,9 @@ function makeGroups(){
   const map=new Map();
   state.picks.forEach(k=>{
     const p=byId(k.id);if(!p)return;
-    const game=state.games.find(g=>g.away===p.team||g.home===p.team);
-    const key=game?"game:"+game.id:"solo:"+p.id;
-    if(!map.has(key))map.set(key,{key,label:game?game.away+" – "+game.home:p.team,players:[],game:game||null});
+    const game=state.games.find(g=>g.id===k.gameId)||state.games.find(g=>g.away===p.team||g.home===p.team);
+    const key=game?"game:"+game.id:(k.gameId?"game:"+k.gameId:"solo:"+p.id);
+    if(!map.has(key))map.set(key,{key,label:game?game.away+" – "+game.home:(k.gameLabel||p.team),players:[],game:game||null});
     map.get(key).players.push(p);
   });
   return Array.from(map.values());
@@ -89,7 +89,7 @@ function renderCoupon(){
   $("tab-count").textContent=state.picks.length;
   $("selected-count").textContent=state.picks.length+" sélection"+(state.picks.length>1?"s":"");
   const entries=state.picks.map(s=>byId(s.id)).filter(Boolean);
-  const rows=entries.map(p=>'<div class="coupon-row"><div><b>'+esc(p.name)+'</b><div class="sub">'+esc(p.team)+' · 1+ point · 10 derniers '+p.last10.withPoint+'/'+p.last10.matches+'</div></div><button class="mini remove" data-add="'+p.id+'" aria-label="Retirer">✕</button></div>').join("");
+  const rows=entries.map(p=>'<div class="coupon-row"><div><b>'+esc(p.name)+'</b><div class="sub">'+(p.isMatch?'Match · '+esc(p.team):esc(p.team)+' · 1+ point · 10 derniers '+p.last10.withPoint+'/'+p.last10.matches)+'</div></div><button class="mini remove" '+(p.isMatch?'data-remove-market="'+esc(p.id)+'"':'data-add="'+p.id+'"')+' aria-label="Retirer">✕</button></div>').join("");
   $("coupon-picks").classList.toggle("empty",!entries.length);
   $("coupon-picks").innerHTML=rows||"Ajoute un joueur depuis Top joueurs, Forme ou Matchs.";
   const groups=makeGroups();
@@ -173,12 +173,29 @@ function copyCoupon(){
   if(!picks.length){alert("Coupon vide.");return}
   const all=groups.every(g=>Number(state.odds[g.key])>1);
   const total=all?groups.reduce((x,g)=>x*Number(state.odds[g.key]),1):null;
-  const lines=["NHL POINT RADAR — COUPON 1+ POINT",state.date,"",...picks.map(p=>"- "+p.name+" ("+p.team+") : 1+ point"),"",...groups.map(g=>g.label+" : "+(Number(state.odds[g.key])>1?oddText(state.odds[g.key]):"cote à saisir")),"",total?"Cote totale : "+oddText(total):"Cotes à compléter","Mise : "+$("stake").value+" CHF","Outil statistique, aucune garantie."];
+  const lines=["NHL POINT RADAR — COUPON 1+ POINT",state.date,"",...picks.map(p=>"- "+p.name+" ("+p.team+")"+(p.isMatch?"":" : 1+ point")),"",...groups.map(g=>g.label+" : "+(Number(state.odds[g.key])>1?oddText(state.odds[g.key]):"cote à saisir")),"",total?"Cote totale : "+oddText(total):"Cotes à compléter","Mise : "+$("stake").value+" CHF","Outil statistique, aucune garantie."];
   const str=lines.join("\n");
   if(navigator.clipboard&&window.isSecureContext)navigator.clipboard.writeText(str).then(()=>alert("Coupon copié !")).catch(()=>prompt("Copier le coupon :",str));
   else prompt("Copier le coupon :",str);
 }
 
+
+function addMatchPick(id,market){
+ const g=state.games.find(x=>x.id===Number(id));
+ if(!g||!upcoming(g))return alert("Marché disponible uniquement avant le début du match.");
+ const labels={homewin:g.home+" gagne (prolongation incluse)",awaywin:g.away+" gagne (prolongation incluse)",
+               o45:"Plus de 4,5 buts au total",o55:"Plus de 5,5 buts au total",
+               home2:g.home+" marque au moins 2 buts",away2:g.away+" marque au moins 2 buts"};
+ if(!labels[market])return;
+ const pid="match:"+id+":"+market;
+ const idx=state.picks.findIndex(p=>p.id===pid);
+ if(idx>=0)state.picks.splice(idx,1);
+ else{
+  if(state.picks.length>=8)return alert("Maximum 8 sélections dans le coupon.");
+  state.picks.push({id:pid,gameId:g.id,gameLabel:g.away+" – "+g.home,label:labels[market]});
+ }
+ state.odds={};save();renderAll();tab("coupons");
+}
 const previewState={selected:null,loading:false};
 function previewIndex(){
  const el=$("preview-list");if(!el)return;
@@ -202,7 +219,11 @@ async function showPreview(id){
    (starters.length?starters.map(p=>'<div class="goalie confirmed">✓ '+esc(p.name)+'</div>').join(""):people.slice(0,3).map(p=>'<div class="goalie">'+esc(p.name)+' · Arrêts '+(p.savePct==null?'—':p.savePct+' %')+' · '+esc(p.starts)+' MJ</div>').join("")||'<div class="hint">Aucune statistique de gardien disponible.</div>')+
    '<details><summary>Composition '+(line.length?'sur la feuille de match':'non confirmée')+'</summary>'+(line.length?'<div class="lineup">'+line.map(p=>'<div>'+esc(p.name)+' · '+esc(p.position)+'</div>').join("")+'</div>':'<p class="hint">La NHL n’a pas encore publié la composition confirmée. Elle apparaîtra dès la mise à jour de la feuille de match.</p>')+'</details></div>';
   }).join("");
-  el.innerHTML=projection+'<p class="hint">⚠️ '+esc(d.model?.label||"Pas de projection")+' · '+esc(d.goalieStatus)+' · Données '+new Date(d.updatedAt).toLocaleTimeString("fr-CH")+'</p><div class="preview-teams">'+sides+'</div>';
+  const game=state.games.find(x=>x.id===Number(id));
+  const marketButtons=game&&upcoming(game)?'<div class="preview-markets"><b>Ajouter au coupon</b><div class="game-options">'+[
+   ["homewin",d.home+" gagne"],["awaywin",d.away+" gagne"],["o45","Over 4,5"],["o55","Over 5,5"],["home2",d.home+" 2+ buts"],["away2",d.away+" 2+ buts"]
+  ].map(a=>'<button class="chip" data-matchpick="'+id+'" data-market="'+a[0]+'">'+esc(a[1])+' +</button>').join("")+'</div></div>':'';
+  el.innerHTML=projection+marketButtons+'<p class="hint">⚠️ '+esc(d.model?.label||"Pas de projection")+' · '+esc(d.goalieStatus)+' · Données '+new Date(d.updatedAt).toLocaleTimeString("fr-CH")+'</p><div class="preview-teams">'+sides+'</div>';
  }catch(e){el.innerHTML='<p class="hint">Données indisponibles : '+esc(e.message)+'</p>'}
  finally{previewState.loading=false}
 }
@@ -221,9 +242,11 @@ function init(){
   $("reload").addEventListener("click",()=>{setNotice("Actualisation en cours…");loadPlayers();loadGames(state.date)});
   $("reload-preview").addEventListener("click",()=>{if(previewState.selected)showPreview(previewState.selected);else previewIndex()});
   $("preview-list").addEventListener("click",e=>{const b=e.target.closest("[data-preview]");if(b)showPreview(Number(b.dataset.preview))});
+  $("preview-list").addEventListener("click",e=>{const b=e.target.closest("[data-matchpick]");if(b)addMatchPick(b.dataset.matchpick,b.dataset.market)});
   $("dialog-close").addEventListener("click",()=>$("player-dialog").close());
   $("odds-area").addEventListener("input",e=>{const k=e.target.dataset.key;if(!k)return;state.odds[k]=e.target.value;save();updateReturn()});
   document.addEventListener("click",e=>{
+    const removeMarket=e.target.closest("[data-remove-market]");if(removeMarket){state.picks=state.picks.filter(p=>p.id!==removeMarket.dataset.removeMarket);state.odds={};save();renderAll();return}
     const a=e.target.closest("[data-add]");if(a){addPick(Number(a.dataset.add));return}
     const b=e.target.closest("[data-info]");if(b){openPlayer(Number(b.dataset.info));return}
     const c=e.target.closest("[data-variant]");if(c){const v=state.variants[Number(c.dataset.variant)];if(!v)return;state.picks=v.picks;state.odds={};save();renderAll();tab("coupons");return}
