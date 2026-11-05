@@ -9,6 +9,7 @@ import time
 from datetime import date, datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from advanced import forecast
 from urllib.parse import urlencode, urlparse, parse_qs
 from urllib.request import Request, urlopen
 
@@ -254,6 +255,22 @@ class Handler(BaseHTTPRequestHandler):
             return jsondata(self,{"ok":True,"service":"football-point-radar","utc":utcnow()})
         if route=="/api/competitions":
             return jsondata(self,{"competitions":list(CAT.values())})
+        if route=="/api/forecast":
+            comp=query.get("competition",[""])[0]
+            eid=query.get("event",[""])[0]
+            if comp not in CAT or not re.fullmatch(r"\d{7,12}",eid):return jsondata(self,{"error":"Match ou compétition invalide"},400)
+            def load():
+                from datetime import timedelta
+                # Find match by checking match day and adjacent days for timezone edges
+                raw=fetch(SPORT+"/"+comp+"/summary",{"event":eid})
+                head=raw.get("header") or {}
+                c=(head.get("competitions") or [{}])[0]
+                event={"id":eid,"date":c.get("date") or datetime.now(timezone.utc).isoformat(),"competitions":[c],
+                       "season":{"slug":""},"status":c.get("status") or {}}
+                parsed=parse_event(event,comp)
+                if not parsed:raise ValueError("Composition des équipes du match indisponible")
+                return forecast(parsed,cache("history:"+comp,3600,lambda:history(comp)),fetch,SPORT)
+            return jsondata(self,cache("forecast:"+comp+":"+eid,240,load))
         if route=="/api/fixtures":
             day=query.get("date",[date.today().isoformat()])[0]
             try:
