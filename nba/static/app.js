@@ -15,6 +15,7 @@ async function analyze(id){
  const g=s.games.find(x=>x.id===id);if(!g)return;
  s.selected=id;tab("joueurs");$("selected-title").textContent=g.away.abbr+" - "+g.home.abbr;$("match-analysis").textContent="Chargement des deux effectifs et des historiques NBA…";
  try{const r=await fetch("/api/report?id="+encodeURIComponent(id)+"&date="+encodeURIComponent(s.date)),d=await r.json();if(!r.ok)throw Error(d.error||r.status);s.report=d;
+ if(g.state==="pre"&&Date.parse(g.date)>Date.now()){try{const key="nba_prediction_"+g.id;if(!localStorage.getItem(key))localStorage.setItem(key,JSON.stringify({at:new Date().toISOString(),report:d}))}catch(e){}}
  const model=d.teamProjection.model;
  $("match-analysis").innerHTML=model?'<div class="projection"><div><small>VICTOIRE '+esc(g.away.abbr)+'</small><strong>'+model.awayWinPct+' %</strong></div><div><small>VICTOIRE '+esc(g.home.abbr)+'</small><strong>'+model.homeWinPct+' %</strong></div><div><small>POINTS '+esc(g.away.abbr)+'</small><strong>'+model.awayScore+'</strong></div><div><small>POINTS '+esc(g.home.abbr)+'</small><strong>'+model.homeScore+'</strong></div><div><small>TOTAL ESTIMÉ</small><strong>'+model.total+'</strong></div></div><p class="muted">Estimation simple non calibrée · '+esc(d.lineupStatus)+' · '+esc(model.method)+'</p>':'<p class="muted">Historique d’équipe insuffisant pour projeter le score.</p>';
  if(d.starters?.length){
@@ -23,8 +24,35 @@ async function analyze(id){
   $("match-analysis").innerHTML+='<p class="muted">Cinq titulaires non confirmés ; actualisation à la prochaine consultation.</p>';
  }
  if(d.retrospective)$("match-analysis").innerHTML+='<p class="warning">Analyse rétrospective reconstruite avec les matchs précédents, pas une prédiction archivée avant rencontre.</p>';
+ displayAudit(d);
  $("player-count").textContent=d.players.length;renderPlayers();
  }catch(e){$("match-analysis").textContent="Données indisponibles : "+e.message}
+}
+
+function displayAudit(report){
+ const output=$("audit");if(!output)return;
+ const actual=report.actuals||[];
+ if(!report.game.completed||!actual.length){output.innerHTML="";return}
+ let snapshot;
+ try{snapshot=JSON.parse(localStorage.getItem("nba_prediction_"+report.game.id)||"null")}catch(e){}
+ const original=snapshot?.report&&snapshot.at&&Date.parse(snapshot.at)<Date.parse(report.game.date)?snapshot.report:report;
+ const points=new Map((original.players||[]).map(p=>[p.id,p]));
+ const items=actual.map(x=>({real:x,pred:points.get(x.id)})).filter(x=>x.pred?.projection?.points!=null);
+ const mae=(name)=>{
+  const matched=items.filter(x=>x.real[name]!=null&&x.pred.projection[name]!=null);
+  if(!matched.length)return "—";
+  return (matched.reduce((t,x)=>t+Math.abs(x.real[name]-x.pred.projection[name]),0)/matched.length).toFixed(2);
+ };
+ const hist=original===report;
+ const rows=items.sort((a,b)=>(b.pred.projection.points||0)-(a.pred.projection.points||0)).map(x=>{
+  const p=x.pred.projection,r=x.real;
+  const cell=key=>p[key]==null||r[key]==null?"—":p[key].toFixed(1)+" / "+r[key];
+  return '<tr><td>'+esc(x.real.name)+'</td><td>'+cell("points")+'</td><td>'+cell("rebounds")+'</td><td>'+cell("assists")+'</td></tr>'
+ }).join("");
+ output.innerHTML='<div class="audit"><h3>📋 Audit après match</h3><p class="muted">'+
+   (hist?'⚠️ Reconstitution effectuée après la rencontre, sans les chiffres de ce match. Ce ne sont PAS des prédictions archivées avant coup d’envoi.':
+   '✓ Comparaison avec la projection enregistrée sur cet iPhone AVANT le début du match ('+esc(new Date(snapshot.at).toLocaleString("fr-CH"))+').')+
+   '</p><div class="audit-metrics"><div><small>Erreur moyenne points</small><b>'+mae("points")+'</b></div><div><small>Erreur rebonds</small><b>'+mae("rebounds")+'</b></div><div><small>Erreur passes</small><b>'+mae("assists")+'</b></div></div><div class="audit-scroll"><table><thead><tr><th>Joueur</th><th>PTS prévu/réel</th><th>REB prévu/réel</th><th>AST prévu/réel</th></tr></thead><tbody>'+rows+'</tbody></table></div><p class="muted">Écart absolu moyen sur les joueurs comparables uniquement · les performances non disponibles sont exclues.</p></div>';
 }
 function renderPlayers(){
  const stat=$("stat-filter").value,q=$("search").value.toLowerCase(),d=s.report;
