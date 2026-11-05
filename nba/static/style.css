@@ -70,3 +70,15 @@ footer{padding:35px 10px;color:#91a9b9;text-align:center;font-size:12px}
 .builder .primary{margin:4px 0 7px}
 .warning{color:#ffdb9d;border:1px solid #94602f;background:#3d3020;padding:11px;border-radius:10px;font-size:12px;margin:10px 0}
 @media(max-width:650px){.builder{padding:14px}.builder-grid{gap:8px}.builder-grid select{font-size:12px}}
+
+.audit{border:1px solid #2b6675;background:#102c3c;border-radius:14px;padding:14px;margin:14px 0 20px}
+.audit h3{margin:2px 0 8px;font-size:19px}
+.audit-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:12px 0}
+.audit-metrics>div{background:#123e48;border-radius:9px;padding:10px}
+.audit-metrics small{display:block;color:#a2c0c9;font-size:10px}
+.audit-metrics b{display:block;color:#20e8b5;font-size:19px;margin-top:5px}
+.audit-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.audit table{width:100%;border-collapse:collapse;min-width:510px;font-size:12px}
+.audit td,.audit th{border-bottom:1px solid #2b5261;padding:9px 6px;text-align:left}
+.audit th{color:#95b8c1;font-weight:650}
+@media(max-width:650px){.audit{padding:11px}.audit-metrics small{font-size:9px}}
