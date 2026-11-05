@@ -146,6 +146,19 @@ async function analyze(id){
  try{await getHistory(f.competition); if(state.selected?.id!==f.id)return;renderAnalysis(f)}
  catch(err){$("analysis").innerHTML='<div class="warning">Données ESPN indisponibles : '+esc(err.message)+'</div>'}
 }
+
+async function loadForecast(f){
+ const el=$("forecast-box");if(!el)return;el.textContent="Chargement des prévisions et compositions…";
+ try{
+  const r=await fetch("/api/forecast?competition="+encodeURIComponent(f.competition)+"&event="+encodeURIComponent(f.id));
+  const d=await r.json();if(!r.ok)throw Error(d.error||"Indisponible");
+  if(state.selected?.id!==f.id)return;
+  const m=d.model;
+  const forecast=m?'<div class="forecast-grid">'+[[f.home.name+" gagne",m.homeWinPct+" %"],["Nul",m.drawPct+" %"],[f.away.name+" gagne",m.awayWinPct+" %"],[f.home.name+" buts",m.homeGoals],[f.away.name+" buts",m.awayGoals],["Buts totaux",m.totalGoals]].map(x=>'<div><small>'+esc(x[0])+'</small><strong>'+esc(x[1])+'</strong></div>').join("")+'</div><p class="caption">'+esc(m.method)+' · Incertitude : '+esc(m.uncertainty)+'</p>':'<div class="warning">Historique insuffisant dans cette compétition pour projeter le score.</div>';
+  const line=(d.lineups||[]).map(x=>'<div class="lineup-side"><b>'+esc(x.team)+'</b> · '+(x.confirmed?'Titulaires ESPN':'Liste non confirmée')+'<div class="lineup-players">'+x.players.map(p=>'<span>'+esc(p.name)+'</span>').join("")+'</div></div>').join("");
+  el.innerHTML='<h3>📈 Chances de victoire & buts attendus</h3>'+forecast+'<h3>👕 Compositions</h3><p class="caption">'+esc(d.lineupStatus)+' · Actualisation automatique toutes les 4 minutes.</p>'+(line||'<div class="warning">Composition non publiée. Aucun titulaire présumé.</div>');
+ }catch(e){el.innerHTML='<div class="warning">Impossible de charger les projections : '+esc(e.message)+'</div>'}
+}
 function renderAnalysis(f){
  const s=stats(f),good=s.home.n>=5&&s.away.n>=5;
  const all=ALL_MARKETS.map(m=>{
@@ -154,7 +167,7 @@ function renderAnalysis(f){
  }).join("");
  $("analysis").innerHTML='<div class="analysis-info"><div class="analysis-head"><h4>'+esc(f.home.name)+' – '+esc(f.away.name)+'</h4><span class="comp-badge '+esc(f.kind)+'">'+esc(f.competitionName)+'</span></div><p>'+esc(f.stage||"")+" · "+esc(localTime(f.date))+' · '+esc(f.country)+'</p><div class="caption"><b>Référence : uniquement '+esc(f.competitionName)+'</b> · Saison courante · Jusqu’au coup d’envoi du match</div></div>'+
  (!good?'<div class="warning">Échantillon limité : '+s.home.n+' match(s) pour '+esc(f.home.name)+' et '+s.away.n+' pour '+esc(f.away.name)+' dans cette compétition. Les indices sur 2 à 4 matchs sont exploratoires et très incertains.</div>':"")+
- '<div class="analysis-stats">'+teamPanel(f.home,s.home,s.homeVenue,"À domicile")+teamPanel(f.away,s.away,s.awayVenue,"À l’extérieur")+'</div><div class="section-head"><h3>Marchés étudiés</h3></div><p class="caption">L’indice de convergence décrit deux historiques ; <b>ce n’est pas une probabilité de réussite</b>. Les statistiques de prolongations des coupes ne sont pas toujours isolables pour les marchés « 90 min ».</p><div class="market-cards">'+all+'</div>';
+ '<div class="analysis-stats">'+teamPanel(f.home,s.home,s.homeVenue,"À domicile")+teamPanel(f.away,s.away,s.awayVenue,"À l’extérieur")+'</div><div class="section-head"><h3>Marchés étudiés</h3></div><p class="caption">L’indice de convergence décrit deux historiques ; <b>ce n’est pas une probabilité de réussite</b>. Les statistiques de prolongations des coupes ne sont pas toujours isolables pour les marchés « 90 min ».</p><div class="market-cards">'+all+'</div><div id="forecast-box" class="forecast-box"></div>';loadForecast(f);
 }
 function key(p){return String(p.eventId)+":"+p.market}
 function addPick(eventId,market){
@@ -360,5 +373,6 @@ async function init(){
  catch(e){note("Impossible de charger les compétitions : "+e.message,true)}
  await loadFixtures(day);
  setInterval(()=>{if(!document.hidden)loadFixtures(state.date)},5*60*1000);
+ setInterval(()=>{if(!document.hidden&&state.selected)loadForecast(state.selected)},4*60*1000);
 }
 document.addEventListener("DOMContentLoaded",init);
