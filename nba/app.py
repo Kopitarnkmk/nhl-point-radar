@@ -148,11 +148,24 @@ def game_report(gid,day):
    except Exception:continue
  players.sort(key=lambda p:p["projection"].get("points",0),reverse=True)
  # Starting five are shown only if ESPN explicitly marks athletes as starters.
- starters=[]
+ starters=[];actuals=[]
  try:
   summary=fetch(SRC+"/summary",{"event":gid})
   for block in (summary.get("boxscore") or {}).get("players") or []:
    team=block.get("team") or {}
+   if g["completed"]:
+    for st in block.get("statistics") or []:
+     labels=st.get("names") or []
+     for ath in st.get("athletes") or []:
+      p=ath.get("athlete") or {}
+      raw=dict(zip(labels,ath.get("stats") or []))
+      def number(k):return fnum(raw.get(k))
+      fg=raw.get("FG") or "0-0";three=raw.get("3PT") or "0-0"
+      fgmade=fnum(str(fg).split("-")[0]);three_made=fnum(str(three).split("-")[0])
+      actuals.append({"id":str(p.get("id") or ""),"name":p.get("displayName"),
+        "team":team.get("abbreviation"),"points":number("PTS"),"rebounds":number("REB"),
+        "assists":number("AST"),"twos":(fgmade-three_made if fgmade is not None and three_made is not None else None),
+        "threes":three_made,"steals":number("STL"),"blocks":number("BLK")})
    names=[]
    for st in block.get("statistics") or []:
     for athlete in st.get("athletes") or []:
@@ -161,7 +174,7 @@ def game_report(gid,day):
    names=list(dict.fromkeys(x for x in names if x))
    if names:starters.append({"team":team.get("displayName"),"players":names})
  except Exception:pass
- return {"game":g,"teamProjection":models,"players":players,"asOf":g["date"],"retrospective":datetime.fromisoformat(g["date"].replace("Z","+00:00"))<=datetime.now(timezone.utc), "historicalWindow":"Données des matchs antérieurs au coup d’envoi uniquement","starters":starters,
+ return {"game":g,"teamProjection":models,"players":players,"actuals":actuals,"asOf":g["date"],"retrospective":datetime.fromisoformat(g["date"].replace("Z","+00:00"))<=datetime.now(timezone.utc), "historicalWindow":"Données des matchs antérieurs au coup d’envoi uniquement","starters":starters,
          "lineupStatus":"Cinq de départ indiqués par ESPN" if starters else "Effectifs listés ; cinq de départ non confirmés",
          "updatedAt":datetime.now(timezone.utc).isoformat()}
 def send(h,obj,status=200):
