@@ -90,7 +90,7 @@ def roster(team_id):
   if not p.get("id"):continue
   result.append({"id":str(p["id"]),"name":p.get("displayName") or p.get("fullName"),
                  "position":(p.get("position") or {}).get("abbreviation"),
-                 "status":(p.get("status") or {}).get("name"),"injuries":p.get("injuries") or []})
+                 "status":(p.get("status") or {}).get("name"),"injuries":p.get("injuries") or [],"out":any(str(i.get("status") or "").strip().lower() in ("out","doubtful","inactive") for i in p.get("injuries") or [])})
  return result
 def player_log(pid,cutoff,excluded_event_id):
  raw=fetch(LOGS+f"/athletes/{pid}/gamelog",{"season":season()})
