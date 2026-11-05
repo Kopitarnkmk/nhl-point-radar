@@ -22,7 +22,7 @@ const MARKET=Object.fromEntries(ALL_MARKETS.map(m=>[m.id,m]));
 const MODE={
  prudent:{list:["o15","home1","away1","dc1x","dcx2"],minSample:3,minIndex:57,label:"Prudent"},
  equilibre:{list:["o25","btts","homewin","home2","dc1x"],minSample:2,minIndex:50,label:"Équilibré"},
- exploratoire:{list:["o35","home2","away2","awaywin","homewin","btts"],minSample:2,minIndex:44,label:"Exploratoire"},buteurs:{label:"Buteurs"}
+ exploratoire:{list:["o35","home2","away2","awaywin","homewin","btts"],minSample:2,minIndex:44,label:"Exploratoire"},buteurs:{label:"Buteurs"},passeurs:{label:"Passeurs"},decisifs:{label:"Joueurs décisifs"}
 };
 function note(s,error=false){$("notice").textContent=s;$("notice").className="notice "+(error?"error":"ok")}
 function localTime(d){try{return new Intl.DateTimeFormat("fr-CH",{timeZone:"Europe/Zurich",hour:"2-digit",minute:"2-digit"}).format(new Date(d))}catch{return "—"}}
@@ -176,7 +176,7 @@ function groups(){
  return [...map.entries()].map(([eventId,items])=>({eventId,items,label:items[0].home+" – "+items[0].away}));
 }
 function oddKey(group){return "event:"+group.eventId}
-function pickLabel(p){return p.playerName?'⚽ '+p.playerName+' : 1+ but':(MARKET[p.market]?.label||p.market)}
+function pickLabel(p){return p.playerName?(p.market.startsWith("assist:")?"🎯 "+p.playerName+" : 1+ passe":p.market.startsWith("contrib:")?"⭐ "+p.playerName+" : but OU passe":"⚽ "+p.playerName+" : 1+ but"):(MARKET[p.market]?.label||p.market)}
 function renderCoupon(){
  $("count-picks").textContent=state.picks.length;
  $("pick-label").textContent=state.picks.length+" sélection"+(state.picks.length>1?"s":"");
@@ -226,7 +226,7 @@ function renderScorers(){
  $("scorer-list").classList.toggle("empty",!filtered.length);
  $("scorer-list").innerHTML=filtered.length?filtered.map((p,i)=>{
   const playable=state.fixtures.some(g=>g.competition===comp&&(g.home.id===p.teamId||g.away.id===p.teamId)&&upcoming(g));
-  return '<div class="scorer-card"><div class="scorer-rank">'+(i+1)+'</div><div class="scorer-identity"><b>'+esc(p.name)+'</b><small>'+esc(scorerTeamName(p,comp))+' · '+esc(p.matches)+' matchs · '+esc(p.assists)+' passes</small></div><div class="scorer-goals"><strong>'+esc(p.goals)+'</strong><small>buts</small></div><button class="small-btn" data-addscorer="'+esc(p.id)+'" data-comp="'+esc(comp)+'" '+(playable?'':'disabled')+'>＋</button></div>';
+  return '<div class="scorer-card"><div class="scorer-rank">'+(i+1)+'</div><div class="scorer-identity"><b>'+esc(p.name)+'</b><small>'+esc(scorerTeamName(p,comp))+' · '+esc(p.matches)+' matchs · '+esc(p.assists)+' passes</small></div><div class="scorer-goals"><strong>'+esc(p.goals)+'</strong><small>buts</small></div><div class="scorer-actions"><button class="small-btn" data-addscorer="'+esc(p.id)+'" data-scormarket="scorer" data-comp="'+esc(comp)+'" '+(playable?'':'disabled')+'>But</button><button class="small-btn" data-addscorer="'+esc(p.id)+'" data-scormarket="assist" data-comp="'+esc(comp)+'" '+(playable?'':'disabled')+'>Passe</button><button class="small-btn" data-addscorer="'+esc(p.id)+'" data-scormarket="contrib" data-comp="'+esc(comp)+'" '+(playable?'':'disabled')+'>Décisif</button></div></div>';
  }).join(""):"Aucun buteur affichable pour ce filtre.";
 }
 async function loadScorers(){
@@ -239,12 +239,12 @@ async function loadScorers(){
   renderScorers();
  }catch(e){$("scorer-message").textContent="Erreur : "+e.message}
 }
-function addScorer(id,comp){
+function addScorer(id,comp,market="scorer"){
  const p=state.scorers[comp]?.players?.find(x=>x.id===String(id));
  if(!p)return;
  const g=state.fixtures.find(x=>x.competition===comp&&(x.home.id===p.teamId||x.away.id===p.teamId)&&upcoming(x));
  if(!g)return alert("Pas de rencontre à venir ce jour pour ce buteur.");
- const pick={eventId:g.id,competition:comp,home:g.home.name,away:g.away.name,market:"scorer:"+p.id,playerName:p.name,teamName:scorerTeamName(p,comp),goals:p.goals,matches:p.matches};
+ const pick={eventId:g.id,competition:comp,home:g.home.name,away:g.away.name,market:market+":"+p.id,playerName:p.name,teamName:scorerTeamName(p,comp),goals:p.goals,assists:p.assists,matches:p.matches};
  const i=state.picks.findIndex(x=>x.eventId===pick.eventId&&x.market===pick.market);
  if(i>=0)state.picks.splice(i,1);
  else {if(state.picks.length>=8)return alert("Maximum 8 sélections");state.picks.push(pick)}
@@ -262,11 +262,11 @@ async function jumpNext(source){
  }catch(e){$("builder-message").textContent="Prochaines rencontres : "+e.message}
 }
 function candidates(mode,f){
- if(mode==="buteurs")return (state.scorers[f.competition]?.players||[])
-  .filter(p=>[f.home.id,f.away.id].includes(p.teamId)&&p.matches>=2&&p.goals>=1)
+ if(["buteurs","passeurs","decisifs"].includes(mode))return (state.scorers[f.competition]?.players||[])
+  .filter(p=>[f.home.id,f.away.id].includes(p.teamId)&&p.matches>=2&&(mode==="buteurs"?p.goals>=1:mode==="passeurs"?p.assists>=1:p.goals+p.assists>=1))
   .map(p=>({eventId:f.id,competition:f.competition,home:f.home.name,away:f.away.name,
-    market:"scorer:"+p.id,playerName:p.name,teamName:scorerTeamName(p,f.competition),
-    idx:Math.round(p.goals*100/p.matches),goals:p.goals,matches:p.matches}))
+    market:(mode==="buteurs"?"scorer:":mode==="passeurs"?"assist:":"contrib:")+p.id,playerName:p.name,teamName:scorerTeamName(p,f.competition),
+    idx:Math.round(100*(mode==="buteurs"?p.goals:mode==="passeurs"?p.assists:p.goals+p.assists)/p.matches),goals:p.goals,assists:p.assists,matches:p.matches}))
   .sort((a,b)=>b.idx-a.idx).slice(0,5);
  const cfg=MODE[mode],ss=stats(f);
  if(ss.home.n<cfg.minSample||ss.away.n<cfg.minSample)return [];
@@ -289,7 +289,7 @@ function build(mode,count,allowMulti){
 async function prepareBuilder(){
  const cs=[...new Set(filteredForBuilder().map(f=>f.competition))];
  if(!cs.length){$("builder-message").textContent="Tous les matchs sélectionnés ont commencé ou sont terminés le "+state.date+". Utilise « Chercher les prochaines rencontres ».";return false}
- const isScorer=$("mode").value==="buteurs";
+ const isScorer=["buteurs","passeurs","decisifs"].includes($("mode").value);
  const missing=cs.filter(c=>isScorer?!state.scorers[c]:!state.histories[c]);
  $("builder-message").textContent="Chargement des "+(isScorer?"buteurs":"résultats")+" : "+missing.length+" compétition(s)…";
  for(let i=0;i<missing.length;i+=3)await Promise.all(missing.slice(i,i+3).map(async c=>{try{if(isScorer)await getScorers(c);else await getHistory(c)}catch(e){$("builder-message").textContent="Données manquantes : "+c}}));
@@ -352,7 +352,7 @@ async function init(){
  document.addEventListener("click",e=>{
   const a=e.target.closest("[data-analyze]");if(a){analyze(a.dataset.analyze);return}
   const b=e.target.closest("[data-market]");if(b){addPick(b.dataset.game,b.dataset.market);return}
-  const sc=e.target.closest("[data-addscorer]");if(sc){addScorer(sc.dataset.addscorer,sc.dataset.comp);return}
+  const sc=e.target.closest("[data-addscorer]");if(sc){addScorer(sc.dataset.addscorer,sc.dataset.comp,sc.dataset.scormarket||"scorer");return}
   const c=e.target.closest("[data-remove]");if(c){state.picks.splice(+c.dataset.remove,1);state.odds={};persist();renderCoupon();return}
   const d=e.target.closest("[data-variant]");if(d){const v=state.variants[+d.dataset.variant];if(v){state.picks=v.picks;state.odds={};persist();renderCoupon();tab("coupons")}}
  });
