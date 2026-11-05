@@ -37,9 +37,35 @@ function add(id){
  state.picks.push({match:m.id,tour:m.tour,tournament:m.tournament,player:p.name,opponent:(p.id===m.a.id?m.b.name:m.a.name)});
  state.odds={};store();renderCoupon();tab("coupon");
 }
+
+function generateCouponTennis(){
+ const mode=$("auto-mode").value,n=Number($("auto-count").value),tour=$("auto-tour").value,msg=$("auto-feedback");
+ const candidates=[];
+ for(const m of state.matches){
+  if(!upcoming(m)||(tour!=="all"&&m.tour!==tour)||!m.model)continue;
+  const p=m.model.aWinPct>=m.model.bWinPct?m.a:m.b;
+  const q=p.id===m.a.id?m.b:m.a;
+  const rate=Math.max(m.model.aWinPct,m.model.bWinPct);
+  if(p.last10<3||q.last10<3)continue;
+  const valid=mode==="prudent"?rate>=70&&p.last10Wins/p.last10>=.55:
+       mode==="equilibre"?rate>=58&&rate<70:
+       rate>=50&&rate<58;
+  if(!valid)continue;
+  candidates.push({match:m.id,tour:m.tour,tournament:m.tournament,player:p.name,opponent:q.name,
+                   index:rate,form:p.last10Wins+"/"+p.last10,level:mode,start:m.date});
+ }
+ candidates.sort((a,b)=>mode==="exploratoire"?a.index-b.index:b.index-a.index);
+ const chosen=candidates.slice(0,n);
+ if(!chosen.length){
+  msg.textContent="Aucun match encore à venir ne correspond aux critères du mode "+mode+". Réessaie un autre mode, une autre date ou un autre tour.";
+  return;
+ }
+ state.picks=chosen;state.odds={};store();renderCoupon();
+ msg.textContent=chosen.length+"/"+n+" suggestions. Indice heuristique fondé sur classement et forme récente, NON calibré en probabilité de victoire. Vérifie surface, fatigue, blessures et cotes.";
+}
 function renderCoupon(){
  $("picks-count").textContent=state.picks.length;
- $("picks").innerHTML=state.picks.map((p,i)=>'<div class="pick"><div><b>'+esc(p.player)+' gagne</b><small>'+esc(p.tournament)+' vs '+esc(p.opponent)+'</small></div><button class="sub" data-remove="'+i+'">✕</button></div>').join("")||'<p class="muted">Aucun joueur choisi.</p>';
+ $("picks").innerHTML=state.picks.map((p,i)=>'<div class="pick"><div><b>'+esc(p.player)+' gagne</b><small>'+esc(p.tournament)+' vs '+esc(p.opponent)+(p.form?' · Forme : '+esc(p.form)+' · Indice : '+esc(p.index)+'/100':'')+'</small></div><button class="sub" data-remove="'+i+'">✕</button></div>').join("")||'<p class="muted">Aucun joueur choisi.</p>';
  $("odds").innerHTML=state.picks.map((p,i)=>'<div class="odd"><label>Cote de '+esc(p.player)+'<input type="number" min="1.01" step=".01" data-odd="'+p.match+'" placeholder="Cote bookmaker" value="'+esc(state.odds[p.match]||"")+'"></label></div>').join("");
  calc();
 }
@@ -48,6 +74,7 @@ function copy(){let txt=["TENNIS RADAR",...state.picks.map(p=>p.player+" vainque
 document.addEventListener("DOMContentLoaded",()=>{restore();renderCoupon();read(today());
  document.querySelectorAll("nav button").forEach(b=>b.addEventListener("click",()=>tab(b.dataset.tab)));
  $("tour").addEventListener("change",renderMatches);$("search").addEventListener("input",renderMatches);$("date").addEventListener("change",e=>read(e.target.value));
+ $("auto-generate").addEventListener("click",generateCouponTennis);
  $("clear").addEventListener("click",()=>{state.picks=[];state.odds={};store();renderCoupon()});$("copy").addEventListener("click",copy);
  $("stake").addEventListener("input",()=>{store();calc()});$("odds").addEventListener("input",e=>{let id=e.target.dataset.odd;if(id){state.odds[id]=e.target.value;store();calc()}});
  document.addEventListener("click",e=>{let b=e.target.closest("[data-match]");if(b){analyze(b.dataset.match);return}b=e.target.closest("[data-pick]");if(b){add(b.dataset.pick);return}b=e.target.closest("[data-remove]");if(b){state.picks.splice(+b.dataset.remove,1);state.odds={};store();renderCoupon()}});
