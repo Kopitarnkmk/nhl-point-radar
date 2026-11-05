@@ -11,6 +11,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs, urlencode
 from urllib.request import urlopen, Request
 from pathlib import Path
+from nhl_advanced import game_preview
 
 BASE = Path(__file__).resolve().parent
 CACHE = {}
@@ -178,6 +179,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json(cached("players:"+season,900,lambda:all_players(season)))
             except Exception as e:
                 return self.json({"error":"Données NHL indisponibles : "+str(e)},502)
+        if route=="/api/preview":
+            raw=query.get("id",[""])[0]
+            if not re.fullmatch(r"20\d{8}",raw):return self.json({"error":"Identifiant de match invalide"},400)
+            try:
+                return self.json(cached("preview:"+raw,180,lambda:game_preview(nhl,int(raw),season_now())))
+            except Exception as e:return self.json({"error":"Analyse NHL indisponible : "+str(e)},502)
         if route=="/api/games":
             day=query.get("date",[datetime.now(timezone.utc).date().isoformat()])[0]
             try:
