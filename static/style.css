@@ -15,3 +15,4 @@
 .lineup{font-size:11px;color:#b5cbd3}
 .warning{padding:10px;background:#452d1b;border:1px solid #7b522c;border-radius:9px;color:#ffd2a2;font-size:12px}
 @media(max-width:680px){.tabs{grid-template-columns:repeat(5,minmax(0,1fr))}.tab{font-size:10px}.tab span{display:block;font-size:10px}.preview-teams{grid-template-columns:1fr}}
+.preview-markets{margin:12px 0;border-top:1px solid #28616d;padding-top:12px}.preview-markets>b{font-size:12px;display:block;margin-bottom:9px}.preview-markets .chip{border-color:#1b8070;color:#c0ffed;background:#0e453b}
