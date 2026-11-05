@@ -44,7 +44,7 @@ def fixtures(day):
   out.append({"id":str(e["id"]),"date":e.get("date"),"home":t(home),"away":t(away),
               "state":status.get("state"),"completed":bool(status.get("completed"))})
  return {"date":day,"games":out,"updatedAt":datetime.now(timezone.utc).isoformat(),"source":"ESPN"}
-def team_form(tid):
+def team_form(tid,cutoff):
  raw=fetch(SRC+f"/teams/{tid}/schedule",{"dates":str(season()),"limit":150})
  rows=[]
  for e in raw.get("events") or []:
@@ -60,7 +60,8 @@ def team_form(tid):
    return fnum(s)
   aa,bb=score(a),score(b)
   if aa is None or bb is None:continue
-  if e.get("date") and e["date"]>datetime.now(timezone.utc).isoformat():continue
+  # Strictly prior completed games: never train on the event being analysed.
+  if not e.get("date") or e["date"]>=cutoff:continue
   rows.append((e.get("date") or "",aa,bb))
  rows.sort(key=lambda x:x[0],reverse=True);rows=rows[:10]
  n=len(rows)
@@ -69,7 +70,7 @@ def team_form(tid):
          "wins":sum(x[1]>x[2] for x in rows)}
 def analyze_team(game):
  with concurrent.futures.ThreadPoolExecutor(max_workers=2) as ex:
-  h=ex.submit(team_form,game["home"]["id"]);a=ex.submit(team_form,game["away"]["id"])
+  h=ex.submit(team_form,game["home"]["id"],game["date"]);a=ex.submit(team_form,game["away"]["id"],game["date"])
   hs=h.result();aw=a.result()
  model=None
  if hs["games"]>=4 and aw["games"]>=4:
@@ -91,7 +92,7 @@ def roster(team_id):
                  "position":(p.get("position") or {}).get("abbreviation"),
                  "status":(p.get("status") or {}).get("name"),"injuries":p.get("injuries") or []})
  return result
-def player_log(pid):
+def player_log(pid,cutoff,excluded_event_id):
  raw=fetch(LOGS+f"/athletes/{pid}/gamelog",{"season":season()})
  names=raw.get("names") or []
  groups=[x for x in raw.get("seasonTypes") or [] if "Regular Season" in x.get("displayName","")]
@@ -99,6 +100,11 @@ def player_log(pid):
  for block in groups:
   for cat in block.get("categories") or []:
    for item in cat.get("events") or []:
+    event_id=str(item.get("eventId") or "")
+    event_info=(raw.get("events") or {}).get(event_id) or {}
+    played=event_info.get("gameDate") or ""
+    # Date and event ID filter prevent target-match outcome leakage.
+    if not played or played>=cutoff or event_id==str(excluded_event_id):continue
     stats=item.get("stats") or []
     data=dict(zip(names,stats))
     def stat(k):
@@ -108,12 +114,13 @@ def player_log(pid):
     three=data.get("threePointFieldGoalsMade-threePointFieldGoalsAttempted") or "0-0"
     fgmade=fnum(str(fg).split("-")[0]);threemade=fnum(str(three).split("-")[0])
     if fgmade is None or threemade is None:continue
-    out.append({"id":str(item.get("eventId")),"points":stat("points"),"rebounds":stat("totalRebounds"),
+    out.append({"date":played,"id":event_id,"points":stat("points"),"rebounds":stat("totalRebounds"),
                 "assists":stat("assists"),"threes":threemade,"twos":max(0,fgmade-threemade),
                 "blocks":stat("blocks"),"steals":stat("steals"),"minutes":stat("minutes")})
+ out.sort(key=lambda r:r["date"],reverse=True)
  return out
-def player_forecast(p):
- try:rows=player_log(p["id"])
+def player_forecast(p,cutoff,excluded_event_id):
+ try:rows=player_log(p["id"],cutoff,excluded_event_id)
  except Exception:return None
  if not rows:return None
  stats={}
@@ -122,7 +129,7 @@ def player_forecast(p):
   if not vals:continue
   mean10=sum(vals[:10])/len(vals[:10]);mean5=sum(vals[:5])/len(vals[:5])
   stats[key]=round(.6*mean5+.4*mean10,1)
- return dict(p,projection=stats,games=len(rows),sample=min(10,len(rows)),method="Moyenne pondérée 5/10 derniers matchs de saison régulière, non ajustée aux absences ni à l'adversaire.")
+ return dict(p,projection=stats,history={k:[r[k] for r in rows[:10] if r.get(k) is not None] for k in stats},games=len(rows),sample=min(10,len(rows)),method="Moyenne pondérée 5/10 derniers matchs de saison régulière, non ajustée aux absences ni à l'adversaire.")
 def game_report(gid,day):
  g=next((x for x in fixtures(day)["games"] if x["id"]==gid),None)
  if not g:raise ValueError("Match introuvable pour la date.")
@@ -133,7 +140,7 @@ def game_report(gid,day):
  both=[(g["home"]["abbr"],p) for p in home_players[:15]]+[(g["away"]["abbr"],p) for p in away_players[:15]]
  players=[]
  with concurrent.futures.ThreadPoolExecutor(max_workers=9) as ex:
-  tasks={ex.submit(player_forecast,p):abbr for abbr,p in both}
+  tasks={ex.submit(player_forecast,p,g["date"],gid):abbr for abbr,p in both}
   for future in concurrent.futures.as_completed(tasks):
    try:
     q=future.result()
@@ -154,7 +161,7 @@ def game_report(gid,day):
    names=list(dict.fromkeys(x for x in names if x))
    if names:starters.append({"team":team.get("displayName"),"players":names})
  except Exception:pass
- return {"game":g,"teamProjection":models,"players":players,"starters":starters,
+ return {"game":g,"teamProjection":models,"players":players,"asOf":g["date"],"retrospective":datetime.fromisoformat(g["date"].replace("Z","+00:00"))<=datetime.now(timezone.utc), "historicalWindow":"Données des matchs antérieurs au coup d’envoi uniquement","starters":starters,
          "lineupStatus":"Cinq de départ indiqués par ESPN" if starters else "Effectifs listés ; cinq de départ non confirmés",
          "updatedAt":datetime.now(timezone.utc).isoformat()}
 def send(h,obj,status=200):
