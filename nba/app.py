@@ -140,8 +140,22 @@ def game_report(gid,day):
     if q and q.get("projection"):q["team"]=tasks[future];players.append(q)
    except Exception:continue
  players.sort(key=lambda p:p["projection"].get("points",0),reverse=True)
- # Starting five cannot be assumed from the roster. ESPN may only announce starters during the game.
- return {"game":g,"teamProjection":models,"players":players,"lineupStatus":"Effectifs listés ; cinq de départ non confirmés",
+ # Starting five are shown only if ESPN explicitly marks athletes as starters.
+ starters=[]
+ try:
+  summary=fetch(SRC+"/summary",{"event":gid})
+  for block in (summary.get("boxscore") or {}).get("players") or []:
+   team=block.get("team") or {}
+   names=[]
+   for st in block.get("statistics") or []:
+    for athlete in st.get("athletes") or []:
+     if athlete.get("starter") is True:
+      names.append((athlete.get("athlete") or {}).get("displayName") or "")
+   names=list(dict.fromkeys(x for x in names if x))
+   if names:starters.append({"team":team.get("displayName"),"players":names})
+ except Exception:pass
+ return {"game":g,"teamProjection":models,"players":players,"starters":starters,
+         "lineupStatus":"Cinq de départ indiqués par ESPN" if starters else "Effectifs listés ; cinq de départ non confirmés",
          "updatedAt":datetime.now(timezone.utc).isoformat()}
 def send(h,obj,status=200):
  raw=json.dumps(obj,ensure_ascii=False).encode();h.send_response(status)
