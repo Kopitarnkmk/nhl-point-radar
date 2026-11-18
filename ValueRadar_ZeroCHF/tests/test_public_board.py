@@ -11,9 +11,9 @@ def fixture_payload(*, active=False, update=-2):
         'id':'nhl:abc', 'sport_key':'nhl','commence_time':iso(90),
         'home_team':'Home','away_team':'Away','in_play':active,
         'bookmakers':[
-            {'key':'pinnacle','title':'Pinnacle','last_update':iso(update),
+            {'kind':'sportsbook','key':'pinnacle','title':'Pinnacle','last_update':iso(update),
              'markets':{'h2h':[{'name':'Home','price':-110},{'name':'Away','price':-110}]}},
-            {'key':'bet365','title':'bet365','last_update':iso(update),
+            {'kind':'sportsbook','key':'bet365','title':'bet365','last_update':iso(update),
              'markets':{'h2h':[{'name':'Home','price':+130},{'name':'Away','price':-120}]}}
         ]}]}
 
@@ -46,6 +46,13 @@ class TestPublicBoard(unittest.TestCase):
         d = fixture_payload(update=-30)
         found, _ = scan_all(fetch=lambda url:d, now=NOW)
         self.assertFalse(found)
+
+    def test_exchange_excluded(self):
+        d = fixture_payload()
+        d['fixtures'][0]['bookmakers'][1]['kind'] = 'exchange'
+        found, errors = scan_all(fetch=lambda url: d, now=NOW)
+        self.assertEqual(found, [])
+        self.assertEqual(errors, [])
 
     def test_deterministic_id(self):
         c={'uid':'abc','starts_at':iso(90)}
