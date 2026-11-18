@@ -43,7 +43,7 @@ def board_to_fixture(board):
             continue
         books = []
         for b in f.get('bookmakers', []):
-            if not isinstance(b, dict):
+            if not isinstance(b, dict) or b.get('kind') != 'sportsbook':
                 continue
             markets = []
             for mk, outcomes in (b.get('markets') or {}).items():
@@ -110,7 +110,13 @@ def scan_all(fetch=http_json, *, now=None, min_edge=7.0):
         except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, ValueError, TypeError, KeyError) as exc:
             errors.append(f'{sport}: {type(exc).__name__} {exc}')
             print(f'ERREUR {errors[-1]}',file=sys.stderr)
-    return sorted(results, key=lambda c: c['edge'], reverse=True), errors
+    # Une seule alerte par marché/sélection d'un match : garder le prix sportsbook le plus haut.
+    best = {}
+    for c in results:
+        key = (c['sport'], c['home'], c['away'], c['market'], c['selection'], c.get('line'), c['starts_at'])
+        if key not in best or c['edge'] > best[key]['edge']:
+            best[key] = c
+    return sorted(best.values(), key=lambda c: c['edge'], reverse=True), errors
 
 
 def issue_comment_url(repo, issue):
