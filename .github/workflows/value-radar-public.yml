@@ -1,5 +1,9 @@
 name: ValueRadar ZERO CHF - radar public
 on:
+  push:
+    paths:
+      - 'ValueRadar_ZeroCHF/**'
+      - '.github/workflows/value-radar-public.yml'
   schedule:
     # API publique OddsLink : 3 sports / 30 min, sans clé ni frais.
     - cron: '13,43 * * * *'
@@ -37,7 +41,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VALUE_RADAR_ISSUE: '1'
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.test }}" = "true" ]; then
+          if [ "${{ github.event_name }}" = "push" ] || { [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.test }}" = "true" ]; }; then
             python ValueRadar_ZeroCHF/public_board.py --test
           else
             python ValueRadar_ZeroCHF/public_board.py
