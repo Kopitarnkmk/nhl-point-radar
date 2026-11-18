@@ -1,0 +1,44 @@
+name: ValueRadar ZERO CHF - radar public
+on:
+  schedule:
+    # API publique OddsLink : 3 sports / 30 min, sans clé ni frais.
+    - cron: '13,43 * * * *'
+  workflow_dispatch:
+    inputs:
+      test:
+        description: "Test sans notification publique (true / false)"
+        required: true
+        default: 'true'
+        type: choice
+        options: ['true', 'false']
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  radar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    concurrency:
+      group: value-radar-public
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Tests unitaires
+        env:
+          PYTHONPATH: ValueRadar_ZeroCHF
+        run: python -m unittest discover -s ValueRadar_ZeroCHF/tests -v
+      - name: Radar de cotes publiques (zéro API privée)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VALUE_RADAR_ISSUE: '1'
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.test }}" = "true" ]; then
+            python ValueRadar_ZeroCHF/public_board.py --test
+          else
+            python ValueRadar_ZeroCHF/public_board.py
+          fi
