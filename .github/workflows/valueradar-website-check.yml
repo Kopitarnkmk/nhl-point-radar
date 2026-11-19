@@ -1,0 +1,44 @@
+name: ValueRadar website check
+on:
+  push:
+    paths:
+      - '.github/workflows/valueradar-website-check.yml'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate sources
+        run: |
+          python -m py_compile app.py ValueRadar_ZeroCHF/dashboard_api.py
+          node --check static/valueradar/app.js
+          PYTHONPATH=ValueRadar_ZeroCHF python -m unittest discover -s ValueRadar_ZeroCHF/tests -v
+      - name: Confirm live Render deployment
+        shell: bash
+        run: |
+          set -o pipefail
+          BASE="https://nhl-point-radar.onrender.com"
+          for attempt in $(seq 1 8); do
+            echo "Attempt $attempt/8: $BASE/valueradar/"
+            if curl -fLsS --connect-timeout 15 --max-time 50 "$BASE/valueradar/" -o /tmp/vr.html; then
+              if grep -q "ODDS INTELLIGENCE" /tmp/vr.html; then
+                echo "Dashboard HTML is LIVE."
+                if curl -fLsS --connect-timeout 15 --max-time 65 "$BASE/api/valueradar" -o /tmp/vr.json; then
+                  python - <<'PY'
+import json
+d=json.load(open('/tmp/vr.json'))
+print('API status:', d.get('status'), 'scanned:', d.get('scanned_at'))
+print('Games:', d.get('stats',{}).get('games'), 'signals:', d.get('stats',{}).get('signals'))
+assert d.get('ok') and isinstance(d.get('games'),list)
+PY
+                  exit 0
+                fi
+              fi
+            fi
+            sleep 25
+          done
+          echo "Website or live API unreachable / not deployed." >&2
+          exit 1
