@@ -169,6 +169,21 @@ class Handler(BaseHTTPRequestHandler):
         parsed=urlparse(self.path)
         route=parsed.path
         query=parse_qs(parsed.query)
+        if route=="/api/valueradar":
+            try:
+                import sys
+                radar_folder = str(BASE / "ValueRadar_ZeroCHF")
+                if radar_folder not in sys.path:
+                    sys.path.insert(0, radar_folder)
+                from dashboard_api import build_dashboard
+                def get_live():
+                    data = build_dashboard()
+                    if not data.get("ok"):
+                        raise RuntimeError("Aucun flux de cotes disponible")
+                    return data
+                return self.json(cached("valueradar:dashboard", 150, get_live))
+            except Exception as e:
+                return self.json({"ok":False,"error":"Source de cotes indisponible","detail":type(e).__name__},502)
         if route=="/api/health":
             return self.json({"ok":True,"utc":now(),"season":season_now()})
         if route=="/api/players":
@@ -197,6 +212,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json(cached("games:"+day,300,lambda:games_for(day)))
             except Exception as e:
                 return self.json({"error":"Calendrier NHL indisponible : "+str(e)},502)
+        if route in ("/valueradar", "/valueradar/"):
+            route = "/valueradar/index.html"
         file_path = BASE / "static" / ("index.html" if route=="/" else route.removeprefix("/"))
         if not file_path.resolve().is_relative_to((BASE/"static").resolve()) or not file_path.is_file():
             self.send_error(404)
