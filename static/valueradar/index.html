@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#090f18" />
+  <meta name="description" content="ValueRadar — détecteur gratuit d'écarts de cotes sur football, NBA et NHL. Données réelles, sans paris automatisés." />
+  <link rel="icon" type="image/svg+xml" href="/valueradar/icon.svg" />
+  <link rel="stylesheet" href="/valueradar/style.css?v=3" />
+  <title>ValueRadar — Tableau de bord</title>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <a class="identity" href="/valueradar/" aria-label="ValueRadar, accueil">
+      <span class="brandmark"><svg viewBox="0 0 36 36" width="30" height="30" fill="none" aria-hidden="true"><path d="M5 25h7l5-16 5 20 5-11h4" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="28" cy="18" r="3" fill="#b4fc75"/></svg></span>
+      <span class="brandname">VALUE<span>RADAR</span><small>ODDS INTELLIGENCE</small></span>
+    </a>
+    <div class="side-cap">WORKSPACE</div>
+    <nav class="nav" aria-label="Navigation principale">
+      <a class="nav-link active" href="#dashboard"><span class="nav-icon">◫</span> Tableau de bord</a>
+      <button class="nav-link" id="nav-live" type="button"><span class="nav-icon">⌁</span> Opportunités <span class="nav-pill" id="sidebar-count">0</span></button>
+      <button class="nav-link" id="nav-games" type="button"><span class="nav-icon">▤</span> Rencontres</button>
+      <a class="nav-link" href="https://github.com/Kopitarnkmk/nhl-point-radar/issues/1" target="_blank" rel="noopener noreferrer"><span class="nav-icon">◉</span> Historique d’alertes <span class="external">↗</span></a>
+    </nav>
+    <div class="side-bottom"><div class="side-help"><span class="green-dot"></span> SOURCE PUBLIQUE<span class="side-help-sub">Football • NBA • NHL</span></div><div class="side-foot">VALUE RADAR / v1.1<br>0 CHF · Aucune mise automatique</div></div>
+  </aside>
+  <div class="workspace">
+    <header class="topbar"><div class="breadcrumbs">MON ESPACE <span>/</span> <strong>RADAR DE COTES</strong></div><div class="topbar-right"><span id="live-state" class="system-indicator loading"><span class="pulse-dot"></span> Connexion en cours</span><a class="github-button" href="https://github.com/Kopitarnkmk/nhl-point-radar/issues/1" target="_blank" rel="noopener noreferrer" aria-label="Notifications GitHub"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4"/></svg><span class="topbar-alert">Alertes</span></a></div></header>
+    <main id="dashboard" class="main">
+      <div class="page-head"><div><div class="eyebrow"><span class="eyebrow-line"></span> MONITORING DES MARCHÉS SPORTIFS</div><h1>Détecter l’écart.<br><em>Décider au bon moment.</em></h1><p>Comparaison des cotes publiques avec Pinnacle. Un radar de surveillance, pas un générateur de paris.</p></div><div class="head-actions"><button id="refresh" class="btn-primary" type="button"><span class="refresh-icon">↻</span> Actualiser les cotes</button><div class="last-update">Dernière analyse : <strong id="last-update">—</strong></div></div></div>
+      <section class="status-strip"><div class="status-strip-left"><span class="tiny-led"></span><strong id="strip-label">Chargement des données</strong><span class="strip-divider"></span><span id="strip-detail">Connexion au tableau public OddsLink</span></div><span class="strip-right">SIGNAL ≠ PARI</span></section>
+      <section class="metrics" aria-label="Statistiques du radar"><div class="metric"><span class="metric-label">OPPORTUNITÉS FILTRÉES <span class="metric-glyph">↗</span></span><div class="metric-val" id="stat-signals">—</div><div class="metric-sub"><span class="chip-lime">EDGE ≥ 7 %</span> à vérifier</div></div><div class="metric"><span class="metric-label">À SURVEILLER <span class="metric-glyph">◈</span></span><div class="metric-val" id="stat-watch">—</div><div class="metric-sub">Écart théorique de 2 à 7 %</div></div><div class="metric"><span class="metric-label">MATCHS ANALYSÉS <span class="metric-glyph">◫</span></span><div class="metric-val" id="stat-matches">—</div><div class="metric-sub">Dans la fenêtre des données publiques</div></div><div class="metric"><span class="metric-label">CONNEXIONS AUX BOOKS <span class="metric-glyph">⌁</span></span><div class="metric-val" id="stat-books">—</div><div class="metric-sub">Occurrences de cotes observées</div></div></section>
+      <section class="module" id="signals-section"><div class="module-top"><div><div class="module-kicker"><span class="module-kicker-led"></span> RADAR D'OPPORTUNITÉS</div><h2>Signaux du marché <span id="results-count" class="count-bubble">—</span></h2><p class="section-lead">Les écarts sont calculés à partir d'une référence Pinnacle sans marge, sur le même marché et la même sélection.</p></div><div class="module-tools"><select id="sport-filter" aria-label="Filtrer par sport"><option value="all">Tous les sports</option><option value="soccer">⚽ Football</option><option value="nba">🏀 NBA</option><option value="nhl">🏒 NHL</option></select><select id="edge-filter" aria-label="Écart minimum"><option value="7">Edge ≥ 7 %</option><option value="5">Edge ≥ 5 %</option><option value="2">Edge ≥ 2 %</option></select></div></div>
+        <div class="tab-bar" role="tablist" aria-label="Type de résultats"><button type="button" class="tab active" data-view="signals" role="tab" aria-selected="true">Opportunités <span id="signal-tab-n">0</span></button><button type="button" class="tab" data-view="watch" role="tab" aria-selected="false">Surveillance <span id="watch-tab-n">0</span></button><button type="button" class="tab" data-view="games" role="tab" aria-selected="false">Rencontres <span id="games-tab-n">0</span></button></div>
+        <div class="list-area"><div id="feed" class="feed" aria-live="polite"><div class="empty loading-shell"><div class="radar-rings"><div class="radar-beam"></div><span class="radar-core">⌁</span></div><h3>Analyse en cours</h3><p>Récupération des cotes auprès du tableau public.</p></div></div></div>
+        <div class="module-bottom"><div><span class="pulse-dot"></span> Relevés actualisés à la demande et automatiquement lorsque la page est ouverte</div><span>Source : <a href="https://oddslink.app/docs/api-reference/operations/publicboard/" target="_blank" rel="noopener noreferrer">OddsLink Public Board ↗</a></span></div>
+      </section>
+      <section class="lower-grid"><div class="info-panel"><div class="info-header"><span class="info-icon">⌁</span><div><h3>Comment lire un signal ?</h3><p>Ce que l'outil calcule réellement.</p></div></div><div class="formula"><div class="formula-caption">EDGE THÉORIQUE</div><strong>(Cote proposée × Probabilité corrigée) − 1</strong><p>La probabilité est dérivée des cotes Pinnacle après retrait de la marge. Elle reste une estimation, pas une probabilité certaine.</p></div><a href="https://github.com/Kopitarnkmk/nhl-point-radar/issues/1" target="_blank" rel="noopener noreferrer" class="text-link">Consulter les alertes publiées <span>↗</span></a></div><div class="info-panel caution"><div class="info-header"><span class="info-icon">!</span><div><h3>Ce radar a des limites</h3><p>Indispensable avant de prendre position.</p></div></div><ul><li>Source publique avec une couverture limitée, pré-match uniquement.</li><li>Aucune vérification automatique des cotes de JouezSport en Suisse.</li><li>Les baisses historiques Pinnacle ne sont pas disponibles sans flux spécifique.</li><li>Une opportunité théorique ne garantit jamais un gain.</li></ul></div></section>
+      <footer class="footer"><span>© 2026 ValueRadar · Outil d'analyse indépendant</span><span>FOOTBALL / NBA / NHL <b>·</b> <a href="https://github.com/Kopitarnkmk/nhl-point-radar" target="_blank" rel="noopener noreferrer">CODE SOURCE ↗</a></span></footer>
+    </main>
+  </div>
+</div>
+<script src="/valueradar/app.js?v=3" defer></script>
+</body>
+</html>
