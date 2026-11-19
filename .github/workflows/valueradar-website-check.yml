@@ -27,13 +27,7 @@ jobs:
               if grep -q "ODDS INTELLIGENCE" /tmp/vr.html; then
                 echo "Dashboard HTML is LIVE."
                 if curl -fLsS --connect-timeout 15 --max-time 65 "$BASE/api/valueradar" -o /tmp/vr.json; then
-                  python - <<'PY'
-import json
-d=json.load(open('/tmp/vr.json'))
-print('API status:', d.get('status'), 'scanned:', d.get('scanned_at'))
-print('Games:', d.get('stats',{}).get('games'), 'signals:', d.get('stats',{}).get('signals'))
-assert d.get('ok') and isinstance(d.get('games'),list)
-PY
+                  python -c "import json; d=json.load(open('/tmp/vr.json')); print('API:',d.get('status'),'Matchs:',d.get('stats',{}).get('games')); assert d.get('ok') and isinstance(d.get('games'),list)"
                   exit 0
                 fi
               fi
